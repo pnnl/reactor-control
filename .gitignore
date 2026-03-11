@@ -2,9 +2,11 @@
 __pycache__/
 *.pyc
 .DS_Store
-.vscode
+
 
 # folders
 tests/
 hardware_manuals/
-
+docs/
+.vscode/
+.ruff_cache/
