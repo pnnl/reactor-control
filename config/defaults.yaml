@@ -1,0 +1,25 @@
+safety_limits:
+  max_temperature: 800.0
+  max_total_flow: 1000.0
+  min_carrier_flow: 0.0
+  max_ramp_rate: 50.0
+  max_water_flow: 105
+
+temperature_control:
+  poll_interval: 5.0
+  ramp_write_interval: 2.0
+  timeout: 3600.0
+  default_ramp_rate: 10.0
+
+flow_control:
+  total_flow_limit: 410.0
+  # mfc_full_scale_sccm: 500.0
+  # calibration_files: {}
+
+sample_management:
+  experiment_root: data
+
+data_acquisition:
+  polling_interval: 1.0
+  auto_export: true
+  data_directory: data

@@ -1,0 +1,91 @@
+# Device Configuration for Reactor Control System
+# 
+# This file contains all hardware device settings including:
+# - COM ports and baud rates
+# - Timeout settings
+# - Gas routing map
+# - Safe fallback values
+
+# Mass Flow Controller settings
+mfc_ports:
+  - COM4
+  - COM5
+
+mfc_baudrate: 9600
+mfc_timeout: 2.0
+
+# MFC Full Scale Settings (SCCM) - Used for fallback linear scaling
+# when calibration data is not available
+# mfc_full_scale_sccm:
+#   COM4: 200.0
+#   COM5: 200.0
+
+# Temperature Controller (Watlow PM Plus) settings
+tc_port: COM6
+tc_baudrate: 9600
+tc_timeout: 1.0
+tc_slave_id: 1
+tc_safe_temperature_c: 120.0
+
+# HPLC Pump settings (SSI Serial Pump Control Series 3)
+hplc_port: COM8
+hplc_baudrate: 9600
+hplc_timeout: 2.0
+hplc_command_delay: 2.0
+
+# Omega CN7600 Temperature Controller settings
+omega_port: COM10
+omega_baudrate: 9600
+omega_timeout: 1.0
+omega_slave_id: 1
+omega_safe_temperature_c: 15.0
+
+# # Personal DAQ/56 settings
+# # 32-bit drivers in SysWOW64 (required for 32-bit Python on 64-bit OS)
+# personal_daq_dll_path: "C:\\Windows\\SysWOW64\\pdaqx.dll"
+# personal_daq_device_name: "Personal Daq"
+# personal_daq_channel: 1
+# personal_daq_gain: 1.0
+
+# MKS ToolWEB settings
+mks_toolweb_host: "127.0.0.1"
+mks_toolweb_port: 80
+mks_toolweb_base_path: "/ToolWeb"
+mks_toolweb_sub_sensor: ""
+mks_toolweb_timeout: 2.0
+mks_toolweb_default_recipe: "Diesel 1Hz R4"
+
+# Gas routing map
+# Maps gas names to device, port, and channel
+gas_routing_map:
+  nh3:
+    device: mfc
+    port: COM4
+    channel: 1
+  h2:
+    device: mfc
+    port: COM4
+    channel: 2
+  o2:
+    device: mfc
+    port: COM4
+    channel: 3
+  n2:
+    device: mfc
+    port: COM4
+    channel: 4
+  "no":
+    device: mfc
+    port: COM5
+    channel: 3
+  h2o:
+    device: hplc
+
+# General connection settings
+connection_retry_attempts: 3
+connection_retry_delay: 1.0
+
+# MG2000 configuration (for ToolWEB)
+mg2000_ini_path: "C:\\OLT\\MG2000_SETUP.INI"
+mg2000_mgrcp_path: "C:\\OLT\\MG2000_last_used_recipe.MGRCP"
+mg2000_addins_dir: "C:\\OLT\\ADDINS"

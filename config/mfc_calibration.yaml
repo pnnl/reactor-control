@@ -1,0 +1,218 @@
+# Default concentration units for user requests
+# Most gases in ppm, O2 and H2O in percent
+default_concentration_units:
+  nh3: ppm
+  h2: ppm
+  o2: percent
+  n2: ppm
+  "no": ppm
+  h2o: percent
+
+mfc_calibrations:
+  # COM4 Channel 1 - NH3
+  - port: COM4
+    channel: 1
+    gas_name: NH3
+    cylinder_concentration: 15000.0  # ppm
+    x_unit: "% open"
+    y_unit: "sccm"
+    x_values:
+      - 79.9
+      - 100.0
+      - 70.0
+      - 29.9
+      - 59.9
+      - 39.9
+      - 9.9
+      - 19.9
+      - 50.0
+      - 4.9
+      - 90.0
+      - 0.0
+    y_values:
+      - 156.5
+      - 196.71
+      - 137.57
+      - 58.743
+      - 117.78
+      - 78.359
+      - 19.451
+      - 39.409
+      - 98.443
+      - 9.3883
+      - 176.8
+      - 0.0
+
+  # COM4 Channel 2 - H2
+  - port: COM4
+    channel: 2
+    gas_name: H2
+    cylinder_concentration: 25000.0  # ppm
+    x_unit: "% open"
+    y_unit: "sccm"
+    x_values:
+      - 80.0
+      - 100.0
+      - 70.0
+      - 30.0
+      - 60.0
+      - 40.0
+      - 10.0
+      - 20.0
+      - 50.0
+      - 5.0
+      - 90.0
+      - 0.0
+    y_values:
+      - 122.39
+      - 153.86
+      - 106.89
+      - 45.797
+      - 91.501
+      - 61.021
+      - 15.159
+      - 30.502
+      - 76.318
+      - 7.398
+      - 138.16
+      - 0.0
+
+
+  # COM4 Channel 3 - O2
+  - port: COM4
+    channel: 3
+    gas_name: O2
+    cylinder_concentration: 1.0e+06 # ppm
+    x_unit: "% open"
+    y_unit: "sccm"
+    x_values:
+      - 80.0
+      - 100.0
+      - 70.0
+      - 30.0
+      - 60.0
+      - 40.0
+      - 10.0
+      - 20.0
+      - 50.0
+      - 5.0
+      - 90.0
+      - 0.0
+    y_values:
+      - 154.58
+      - 193.8
+      - 135.09
+      - 58.43
+      - 116.09
+      - 77.82
+      - 19.515
+      - 38.979
+      - 96.796
+      - 9.6825
+      - 174.44
+      - 0.0
+
+  # COM4 Channel 4 - N2 (carrier gas)
+  - port: COM4
+    channel: 4
+    gas_name: N2
+    cylinder_concentration: 1.0e+06 # ppm
+    x_unit: "% open"
+    y_unit: "sccm"
+    x_values:
+      - 80.0
+      - 100.0
+      - 70.0
+      - 30.0
+      - 60.0
+      - 40.0
+      - 10.0
+      - 20.0
+      - 50.0
+      - 5.0
+      - 90.0
+      - 0.0
+    y_values:
+      - 249.0
+      - 319.0
+      - 216.0
+      - 94.8
+      - 184.0
+      - 125.0
+      - 31.7
+      - 63.6
+      - 153.0
+      - 15.6
+      - 282.0
+      - 0.0
+
+  # COM5 Channel 3 - NO
+  - port: COM5
+    channel: 3
+    gas_name: NO
+    cylinder_concentration: 4878.0  # ppm
+    x_unit: "% open"
+    y_unit: "sccm"
+    x_values:
+      - 80.0
+      - 100.0
+      - 70.0
+      - 30.0
+      - 60.0
+      - 40.0
+      - 10.0
+      - 20.0
+      - 50.0
+      - 5.0
+      - 90.0
+      - 0.0
+    y_values:
+      - 98.751
+      - 124.16
+      - 85.944
+      - 36.797
+      - 73.666
+      - 49.371
+      - 11.954
+      - 24.645
+      - 61.71
+      - 5.8208
+      - 111.62
+      - 0.0
+
+# HPLC Pump Calibration
+hplc_calibration:
+  gas_name: "H2O (HPLC)"
+  x_unit: "mL/min"
+  y_unit: "%"
+  x_values:
+    - 0.008
+    - 0.074
+    - 0.063
+    - 0.010
+    - 0.009
+    - 0.016
+    - 0.032
+    - 0.048
+    - 0.085
+    - 0.000
+  y_values:
+    - 8.82
+    - 86.00
+    - 72.46
+    - 11.74
+    - 10.64
+    - 18.87
+    - 37.37
+    - 55.54
+    - 99.87
+    - 0.00
+
+# Gas name mapping (matches gas_routing_map keys)
+gas_mapping:
+  nh3: [COM4, 1]
+  h2:  [COM4, 2]
+  o2:  [COM4, 3]
+  n2:  [COM4, 4]
+  "no":  [COM5, 3]
+  h2o: hplc
