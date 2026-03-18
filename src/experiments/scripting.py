@@ -17,6 +17,7 @@ Example:
 from __future__ import annotations
 
 import logging
+import shutil
 import time
 import json
 from dataclasses import dataclass
@@ -80,18 +81,15 @@ class Sample:
         notes: Free-form notes
     """
 
-    user_label: str
+    batch_id: str
     mass_mg: float
-    material_type: Optional[str] = None
-    operator: Optional[str] = None
-    composition: Optional[str] = None
-    metal: Optional[str] = None
-    support: Optional[str] = None
-    metal_loading_wt_percent: Optional[float] = None
-    mesh_size: Optional[str] = None
-    pretreatment_history: Optional[str] = None
-    batch_id: Optional[str] = None
-    notes: Optional[str] = None
+    operator: str
+    composition: str
+    metal: str
+    support: str
+    metal_loading_wt_percent: float
+    mesh_size: str
+    synthesis_method: str
 
 
 class ExperimentContext:
@@ -129,6 +127,7 @@ class ExperimentContext:
         self.sample: Optional[Sample] = None
         self._experiment_id: Optional[str] = None
         self._experiment_dir: Optional[Path] = None
+        self._operator: Optional[str] = None
         self._start_time: Optional[datetime] = None
         self._temperature_control: Optional[TemperatureControl] = None
         self._flow_control: Optional[FlowControl] = None
@@ -190,9 +189,6 @@ class ExperimentContext:
 
         self._start_time = datetime.now()
         self._is_running = True
-        self._logger.info(f"=== Starting Experiment: {self.name} ===")
-        self._logger.info(f"Experiment ID: {self._experiment_id}")
-        self._logger.info(f"Output directory: {self._experiment_dir}")
 
         return self
 
@@ -204,9 +200,6 @@ class ExperimentContext:
 
         self._is_running = False
         self._logger.info(f"=== Experiment Finished: {self.name} ===")
-
-        # Cleanup operations
-        self.cleanup()
 
         return False  # Don't suppress exceptions
 
@@ -224,13 +217,7 @@ class ExperimentContext:
         """
 
         self.sample = sample
-
-        # Get material_type with fallback
-        material_type = sample.material_type or "unknown"
-
-        self._logger.info(
-            f"Set sample: {sample.user_label} ({material_type}, {sample.mass_mg} mg)"
-        )
+        self._operator = sample.operator
 
         # Prepare sample metadata
         sample_metadata = asdict(sample)
@@ -239,9 +226,8 @@ class ExperimentContext:
         self._step_logger = StepLogger(
             output_dir=self._experiment_dir,
             experiment_id=self._experiment_id,
-            sample_id=sample.user_label,
             operator=sample.operator,
-            output_filename=f"{self._experiment_id}_expParams.json",
+            output_filename=f"{self._experiment_id}.json",
             sample_metadata=sample_metadata,
         )
 
@@ -308,9 +294,14 @@ class ExperimentContext:
         rate_str = f" at {rate}°C/min" if rate else ""
         self._logger.info(f"Setting temperature: {target}°C{rate_str}")
 
-        # In real implementation, this would await the result
-        # For now, just log the intent
-        result = self._temperature_control.set_temperature(target, ramp_rate=rate)
+        # Build log path for temperature CSV
+        log_path = None
+        if self._experiment_dir and self._experiment_id:
+            log_path = self._experiment_dir / f"{self._experiment_id}.csv"
+
+        result = self._temperature_control.set_temperature(
+            target, ramp_rate=rate, log_path=log_path
+        )
         if result.success:
             self._logger.info(f"Temperature set successfully")
             # Store actual temperature from result data
@@ -383,22 +374,51 @@ class ExperimentContext:
         else:
             self._logger.warning(f"Failed to set gas flows: {result.errors}")
 
-    def stop_all_flows(self) -> None:
-        """Stop all gas flows."""
+    def standby(self, temperature: float = 150.0) -> None:
+        """Stop all flows and set temperature to standby.
+
+        Args:
+            temperature: Standby temperature in °C (default: 150.0).
+        """
 
         self._ensure_flow_control()
 
         if self._flow_control is None:
-            self._logger.warning("Mock stop_all_flows")
+            self._logger.warning("Mock standby")
             return
 
-        self._logger.info("Stopping all flows")
-        result = self._flow_control.set_standby_flow()
+        if self._flow_control is not None:
+            try:
+                self._flow_control.set_standby_flow()
+            except Exception as exc:
+                self._logger.warning(f"Error stopping flows: {exc}")
 
-        if result.success:
-            self._logger.info("All flows stopped")
-        else:
-            self._logger.warning(f"Failed to stop flows: {result.message}")
+        if self._temperature_control is not None:
+            try:
+                self._temperature_control.set_temperature(temperature)
+                self._logger.info(
+                    f"Temperature control set to ambient ({temperature}C)"
+                )
+            except Exception as exc:
+                self._logger.warning(f"Error stopping temperature control: {exc}")
+
+        # Stop data collection
+        if self._data_acquisition is not None:
+            try:
+                self._data_acquisition.stop_recording()
+                self._logger.info("Data collection stopped")
+            except Exception as exc:
+                self._logger.warning(f"Error stopping data collection: {exc}")
+
+        # Finalize step logger
+        if self._step_logger is not None:
+            self._step_logger.finalize()
+            self._logger.info("Step log finalized")
+
+        # Log final summary
+        if self._start_time:
+            duration = (datetime.now() - self._start_time).total_seconds()
+            self._logger.info(f"Total experiment duration: {duration:.1f} seconds")
 
     def start_data_collection(self, interval_sec: float = 5.0) -> None:
         """Start data collection.
@@ -416,7 +436,12 @@ class ExperimentContext:
             return
 
         self._logger.info(f"Starting data collection: {interval_sec}s interval")
-        result = self._data_acquisition.start_recording()
+
+        experiment_name = f"{self._experiment_id}"
+        result = self._data_acquisition.start_recording(
+            experiment_name=experiment_name,
+            data_directory=f"{self._experiment_dir}",
+        )
 
         if result.success:
             self._logger.info("Data collection started")
@@ -438,47 +463,51 @@ class ExperimentContext:
         else:
             self._logger.warning(f"Failed to stop data collection: {result.message}")
 
-    def cleanup(self) -> None:
-        """Clean up all operations.
+    def export_to_z_drive(self) -> None:
+        """Export experiment files to Z: drive.
 
-        Called automatically when exiting the context.
+        Copies all files starting with self._experiment_id from the experiment
+        directory to Z:\ drive.
         """
+        if not self._experiment_id:
+            self._logger.warning("No experiment ID, cannot export to Z: drive")
+            return
 
-        self._logger.info("Running cleanup...")
+        source_dir = self._experiment_dir or self.output_dir
+        if not source_dir or not source_dir.exists():
+            self._logger.warning(f"Source directory does not exist: {source_dir}")
+            return
 
-        # Stop temperature control - set to ambient (25C)
-        if self._temperature_control is not None:
+        # Find all files matching the experiment ID prefix
+        files_to_copy = list(source_dir.glob(f"{self._experiment_id}*"))
+
+        if not files_to_copy:
+            self._logger.warning(
+                f"No files found matching {self._experiment_id}* in {source_dir}"
+            )
+            return
+
+        # Target directory on Z: drive
+        target_dir = Path("Z:/")
+
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            self._logger.error(f"Could not create Z: drive directory: {exc}")
+            return
+
+        # Copy each file
+        copied_count = 0
+        for file_path in files_to_copy:
             try:
-                self._temperature_control.set_temperature(25.0)
-                self._logger.info("Temperature control set to ambient (25C)")
-            except Exception as exc:
-                self._logger.warning(f"Error stopping temperature control: {exc}")
+                dest_path = target_dir / file_path.name
+                shutil.copy2(file_path, dest_path)
+                self._logger.info(f"Copied {file_path.name} to Z:/")
+                copied_count += 1
+            except OSError as exc:
+                self._logger.error(f"Failed to copy {file_path.name}: {exc}")
 
-        # Stop all flows
-        if self._flow_control is not None:
-            try:
-                self._flow_control.set_standby_flow()
-                self._logger.info("All flows stopped")
-            except Exception as exc:
-                self._logger.warning(f"Error stopping flows: {exc}")
-
-        # Stop data collection
-        if self._data_acquisition is not None:
-            try:
-                self._data_acquisition.stop_recording()
-                self._logger.info("Data collection stopped")
-            except Exception as exc:
-                self._logger.warning(f"Error stopping data collection: {exc}")
-
-        # Finalize step logger
-        if self._step_logger is not None:
-            self._step_logger.finalize()
-            self._logger.info("Step log finalized")
-
-        # Log final summary
-        if self._start_time:
-            duration = (datetime.now() - self._start_time).total_seconds()
-            self._logger.info(f"Total experiment duration: {duration:.1f} seconds")
+        self._logger.info(f"Exported {copied_count} files to Z: drive")
 
     # =========================================================================
     # Internal Helpers
@@ -521,6 +550,7 @@ class ExperimentContext:
         try:
             from src.core.config import DeviceConfig
             from src.devices.brooks_mfc import BrooksMFC
+            from src.devices.hplc_pump import HPLCPump
 
             config = DeviceConfig()
             mfc_devices = []
@@ -529,8 +559,14 @@ class ExperimentContext:
                 mfc = BrooksMFC(port=port, config=config)
                 mfc_devices.append(mfc)
 
+            # Create HPLC pump if configured
+            hplc_pump = None
+            if config.hplc_port:
+                hplc_pump = HPLCPump()
+            
             self._flow_control = FlowControl(
                 mfc_devices=mfc_devices,
+                hplc_pump=hplc_pump,
                 defaults=self.defaults,
             )
         except Exception as exc:
@@ -539,13 +575,14 @@ class ExperimentContext:
     def _ensure_data_acquisition(self) -> None:
         """Ensure data acquisition is initialized."""
 
+        from src.devices.mks_toolweb import MKSToolWeb
+
         if self._data_acquisition is not None:
             return
 
         try:
             self._data_acquisition = DataAcquisition(
-                defaults=self.defaults,
-                experiment_dir=self._experiment_dir,
+                toolweb=MKSToolWeb(), defaults=self.defaults
             )
         except Exception as exc:
             self._logger.error(f"Failed to initialize data acquisition: {exc}")

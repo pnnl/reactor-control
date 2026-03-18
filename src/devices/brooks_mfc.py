@@ -122,18 +122,30 @@ class BrooksMFC(SerialDevice):
             return False
 
         output_port = 2 * channel
-        raw_value = int(flow_rate * 10)
-        command = (
-            f"az.{output_port}p1={raw_value}"  # p1 is parameter for flow rate setting
-        )
+        write_value = round(flow_rate, 1)
+        command = f"az.{output_port}p1={write_value:.1f}"
         response = self.send_command(command)
-        if response and response.startswith("AZ,"):
-            self.logger.info(
-                f"Set flow rate to {flow_rate:.1f}% on channel {channel} successfully."
-            )
-            return True
-        self.logger.error(f"Set flow rate failed: '{response}'")
-        return False
+        if not response or not response.startswith("AZ,"):
+            self.logger.error(f"Set flow rate failed: '{response}'")
+            return False
+
+        self.logger.info(
+            f"Set flow rate to {flow_rate:.1f}% on channel {channel} successfully."
+        )
+
+        # Set valve override based on flow rate
+        vor_value = 1 if flow_rate == 0 else 0
+        vor_command = f"az.{output_port}p29={vor_value}"
+        vor_response = self.send_command(vor_command)
+        if not vor_response or not vor_response.startswith("AZ,"):
+            self.logger.error(f"Set valve override failed: '{vor_response}'")
+            return False
+
+        self.logger.info(
+            f"Set valve override to {'closed' if vor_value == 1 else 'normal'} on channel {channel}"
+        )
+
+        return True
 
     def get_device_info(self) -> Dict[str, str]:
         """Get device information from MFC.

@@ -151,10 +151,14 @@ class FlowControl(BaseOperation):
             gas_flows[gas_name] = flow_sccm
 
         # Add water to gas_flows for total flow calculation
-        if h2o_concentration is not None and h2o_concentration != 0.0:
+        if h2o_concentration is not None:  # and h2o_concentration != 0.0:
             hplc_cal = get_hplc_calibration()
 
-            if hplc_cal is not None and hplc_cal.fit is not None:
+            if (
+                hplc_cal is not None
+                and hplc_cal.fit is not None
+                and h2o_concentration != 0
+            ):
                 target_frac = h2o_concentration / 100.0
                 water_flow = total_flow_rate * target_frac
             else:
@@ -208,7 +212,6 @@ class FlowControl(BaseOperation):
             device_type = routing.get("device")
             if device_type == "hplc":
                 if flow_sccm == 0:
-                    # Just stop the pump if water flow is 0
                     result = self._set_hplc_flow(0.0)
                 else:
                     water_flow_mlmin = hplc_cal.fit.inverse_predict(flow_sccm)
@@ -278,13 +281,6 @@ class FlowControl(BaseOperation):
             gas_flows, total_flow_rate
         )
 
-        self.log_step(
-            step_type="flow",
-            gas_type="multiple",
-            gas_flow_sccm=total_flow,
-            status="completed",
-        )
-
         return OperationResult(
             success=True,
             message="Gas flows set.",
@@ -320,9 +316,10 @@ class FlowControl(BaseOperation):
 
             device_type = routing.get("device")
             if device_type == "hplc":
-                # Water flow - keep as is (already in the right unit)
+                hplc_cal = get_hplc_calibration()
                 if self.hplc_pump is not None and self.hplc_pump.is_connected:
-                    actual_concentrations[gas_name] = self.last_water_flow_rate
+                    val = hplc_cal.fit.predict(self.last_water_flow_rate)
+                    actual_concentrations[gas_name] = round(val/total_flow * 100, 1)
                 continue
 
             if device_type != "mfc":
@@ -331,6 +328,8 @@ class FlowControl(BaseOperation):
             # Skip carrier gas (N2) - not needed in output
             if gas_name.lower() == "n2":
                 continue
+            if gas_name.lower() == "nh3":
+                offset = routing.get('offset', 0.2)
 
             port_value = routing.get("port")
             channel_value = routing.get("channel", 1)
@@ -345,7 +344,9 @@ class FlowControl(BaseOperation):
                 continue
 
             # Calculate target percent for this gas (for tolerance comparison)
-            target_percent = self._convert_sccm_to_percent(gas_name, flow_sccm)
+            target_percent = round(
+                self._convert_sccm_to_percent(gas_name, flow_sccm), 1
+            )
             if target_percent is None:
                 target_percent = 0.0
 
@@ -369,7 +370,7 @@ class FlowControl(BaseOperation):
                     if diff_percent <= tolerance_percent:
                         if (
                             last_percent is not None
-                            and abs(actual_percent - last_percent) == 0.0
+                            and abs(actual_percent - last_percent) < 0.1
                         ):
                             stable_count += 1
                             if stable_count >= 2:
@@ -394,7 +395,9 @@ class FlowControl(BaseOperation):
                 last_percent = actual_percent
                 time.sleep(poll_interval)
 
-            if actual_percent is None:
+            if gas_name.lower() == "nh3" and actual_percent < (offset + 0.1):
+                actual_percent = float(max(0, actual_percent - offset))
+                actual_concentrations[gas_name] = round(actual_percent, 1)
                 continue
 
             # Convert percent open to SCCM
@@ -427,7 +430,9 @@ class FlowControl(BaseOperation):
                         concentration = 0.0
                     actual_concentrations[gas_name] = round(concentration, 1)
                 else:
-                    # For percent: directly use the percent value
+                    actual_percent = (
+                        (actual_sccm / total_flow) * cylinder_conc * (100 / 1e6)
+                    )
                     actual_concentrations[gas_name] = round(actual_percent, 1)
 
             except Exception as e:
@@ -684,19 +689,19 @@ if __name__ == "__main__":
     # Set gas concentrations (ppm for most, percent for O2)
     result = flow_control.set_gas_concentrations(
         {
-            "h2": 9300.0,  # ppm
+            "h2": 0.0,  # ppm
             "nh3": 0.0,  # ppm
-            "no": 350.0,  # ppm
-            "o2": 1.0,  # percent
-            "h2o": 0.0,  # percent
+            "no": 0.0,  # ppm
+            "o2": 10.0,  # percent
+            "h2o": 6.0,  # percent
         },
-        total_flow_rate=410,  # sccm total flow
+        total_flow_rate=380,  # sccm total flow
         experiment_dir=Path("C:\\Data\\nelson\\2026"),
     )
 
-    # flow_control.set_standby_flow()
+    flow_control.set_standby_flow()
 
     """1. Need to look at 0 flow and make sure no decimal flow rates ~NH3 is 14.7 at setting of 0
-    2. Need to turn to 'closed' if flow is 0. 
-    3. Need to ensure 'closed' is changed back to normal. apparently a prequistite for getting flow.
+    2. Need to turn to 'closed' if flow is 0. But is that based off of nominal value or calibration value??
+    3. Round the flow values to nearest tenth
     """

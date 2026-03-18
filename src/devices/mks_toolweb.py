@@ -241,6 +241,12 @@ class MKSToolWeb(CommunicationProtocol):
     def set_prn_path(self, prn_path: str) -> bool:
         """Set the PRN storage path/filename (EVID_71).
 
+        This method automatically handles the required sequence:
+        1. Disable PRN storage (in case it's already enabled from previous session)
+        2. Disable rollover (must be done while PRN is disabled)
+        3. Enable PRN storage
+        4. Set the PRN path/filename
+
         Args:
             prn_path: Full filename or path for PRN storage
 
@@ -250,7 +256,47 @@ class MKSToolWeb(CommunicationProtocol):
         if not isinstance(prn_path, str) or not prn_path.strip():
             self.logger.error("PRN path must be a non-empty string")
             return False
+
+        # Step 1: Disable PRN (in case already enabled from previous session)
+        if not self.set_prn_enabled(False):
+            self.logger.warning("Failed to disable PRN storage, continuing anyway")
+
+        # Step 2: Disable rollover (must be done while PRN is disabled)
+        if not self.set_prn_rollover_enabled(False):
+            self.logger.error("Failed to disable PRN rollover")
+            return False
+
+        # Step 3: Enable PRN storage
+        if not self.set_prn_enabled(True):
+            self.logger.error("Failed to enable PRN storage")
+            return False
+
+        # Step 4: Set the PRN path/filename
         return self._send_set_request("EVID_71", prn_path, "71")
+
+    def set_prn_enabled(self, enabled: bool) -> bool:
+        """Enable or disable PRN file storage (EVID_70).
+
+        Args:
+            enabled: True to enable PRN storage, False to disable
+
+        Returns:
+            True if accepted, False otherwise
+        """
+        value = "True" if enabled else "False"
+        return self._send_set_request("EVID_70", value, "70")
+
+    def set_prn_rollover_enabled(self, enabled: bool) -> bool:
+        """Enable or disable PRN rollover mechanism (EVID_72).
+
+        Args:
+            enabled: True to enable rollover, False to disable
+
+        Returns:
+            True if accepted, False otherwise
+        """
+        value = "True" if enabled else "False"
+        return self._send_set_request("EVID_72", value, "72")
 
     def set_spectra_path(self, spectra_path: str) -> bool:
         """Set the spectra storage base path (EVID_81).
@@ -451,7 +497,7 @@ class MKSToolWeb(CommunicationProtocol):
             name = element.attrib.get("Name", "")
             if name == evid_name:
                 feedback = element.attrib.get("Feedback", "")
-                if feedback in ("0", "Acknowledge", "ACK", "Ack"):
+                if feedback in ("0", "Acknowledge", "ACK", "Ack", "100"):
                     return True
                 if feedback:
                     self.logger.error(

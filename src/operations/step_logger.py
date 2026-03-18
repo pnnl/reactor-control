@@ -72,15 +72,13 @@ class StepLogger:
         self,
         output_dir: Path,
         experiment_id: str,
-        sample_id: str,
-        operator: Optional[str] = None,
+        operator: str,
         output_filename: Optional[str] = None,
         sample_metadata: Optional[dict] = None,
     ) -> None:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.experiment_id = experiment_id
-        self.sample_id = sample_id
         self.operator = operator or ""
         self.start_time = datetime.now()
         self.end_time: Optional[datetime] = None
@@ -161,7 +159,6 @@ class StepLogger:
 
         payload = {
             "experiment_id": self.experiment_id,
-            "sample_id": self.sample_id,
             "operator": self.operator,
             "start_time": self.start_time.isoformat(),
             "end_time": self.end_time.isoformat() if self.end_time else "",
@@ -189,7 +186,6 @@ if __name__ == "__main__":
     logger = StepLogger(
         output_dir=Path("C:\\Data\\nelson\\test"),
         experiment_id="EXP-2026-001",
-        sample_id="SAMPLE-A",
         operator="labuser",
     )
 

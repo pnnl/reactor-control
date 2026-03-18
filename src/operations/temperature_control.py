@@ -259,6 +259,7 @@ class TemperatureControl(BaseOperation):
         ramp_rate: Optional[float] = None,
         poll_interval: Optional[float] = None,
         ramp_write_interval: Optional[float] = None,
+        log_path: Optional[Path] = None,
         abort_checker: Optional[Callable[[], bool]] = None,
     ) -> OperationResult:
         """Set a single temperature target without a program.
@@ -268,6 +269,7 @@ class TemperatureControl(BaseOperation):
             ramp_rate: Optional ramp rate in °C/min.
             poll_interval: Optional polling interval in seconds.
             ramp_write_interval: Optional setpoint write interval in seconds.
+            log_path: Optional path for CSV temperature log file.
             abort_checker: Optional callable to signal abort.
 
         Returns:
@@ -311,53 +313,123 @@ class TemperatureControl(BaseOperation):
                     errors=["Failed to connect to controller."],
                 )
 
-        if not self._apply_ramp(
-            writer=None,
-            handle=None,
-            target=target_temp,
-            ramp_rate=ramp_rate,
-            write_interval=ramp_write_interval,
-            abort_checker=abort_checker,
-        ):
+        # Helper function to run the temperature operations with or without logging
+        def run_with_logging():
+            """Execute ramp and wait with optional CSV logging."""
+            if not self._apply_ramp(
+                writer=None,
+                handle=None,
+                target=target_temp,
+                ramp_rate=ramp_rate,
+                write_interval=ramp_write_interval,
+                abort_checker=abort_checker,
+            ):
+                self.log_step(
+                    step_type="temperature",
+                    temp_target=target_temp,
+                    ramp_rate=ramp_rate,
+                    status="failed",
+                    error_message="Failed to apply setpoint ramp.",
+                )
+                return False
+
+            reached = self._wait_for_target(
+                writer=None,
+                handle=None,
+                target=target_temp,
+                poll_interval=poll_interval,
+                ramp_rate=ramp_rate,
+                abort_checker=abort_checker,
+            )
+            if not reached:
+                self.log_step(
+                    step_type="temperature",
+                    temp_target=target_temp,
+                    ramp_rate=ramp_rate,
+                    status="failed",
+                    error_message="Failed to reach target temperature.",
+                )
+                return False
+
             self.log_step(
                 step_type="temperature",
                 temp_target=target_temp,
                 ramp_rate=ramp_rate,
-                status="failed",
-                error_message="Failed to apply setpoint ramp.",
+                status="completed",
             )
-            return OperationResult(
-                success=False,
-                message="Failed to apply setpoint ramp.",
-            )
+            return True
 
-        reached = self._wait_for_target(
-            writer=None,
-            handle=None,
-            target=target_temp,
-            poll_interval=poll_interval,
-            ramp_rate=ramp_rate,
-            abort_checker=abort_checker,
-        )
-        if not reached:
-            self.log_step(
-                step_type="temperature",
-                temp_target=target_temp,
-                ramp_rate=ramp_rate,
-                status="failed",
-                error_message="Failed to reach target temperature.",
-            )
-            return OperationResult(
-                success=False,
-                message="Failed to reach target temperature.",
-            )
+        # If log_path provided, open CSV and run with logging
+        if log_path is not None:
+            try:
+                log_path.parent.mkdir(parents=True, exist_ok=True)
+                with log_path.open("w", newline="", encoding="utf-8") as handle:
+                    writer = csv.writer(handle)
+                    writer.writerow(["datetime", "target_temp", "read_temp"])
+                    handle.flush()
 
-        self.log_step(
-            step_type="temperature",
-            temp_target=target_temp,
-            ramp_rate=ramp_rate,
-            status="completed",
-        )
+                    # Run apply_ramp with writer
+                    if not self._apply_ramp(
+                        writer=writer,
+                        handle=handle,
+                        target=target_temp,
+                        ramp_rate=ramp_rate,
+                        write_interval=ramp_write_interval,
+                        abort_checker=abort_checker,
+                    ):
+                        self.log_step(
+                            step_type="temperature",
+                            temp_target=target_temp,
+                            ramp_rate=ramp_rate,
+                            status="failed",
+                            error_message="Failed to apply setpoint ramp.",
+                        )
+                        return OperationResult(
+                            success=False,
+                            message="Failed to apply setpoint ramp.",
+                        )
+
+                    # Run wait_for_target with writer
+                    reached = self._wait_for_target(
+                        writer=writer,
+                        handle=handle,
+                        target=target_temp,
+                        poll_interval=poll_interval,
+                        ramp_rate=ramp_rate,
+                        abort_checker=abort_checker,
+                    )
+                    if not reached:
+                        self.log_step(
+                            step_type="temperature",
+                            temp_target=target_temp,
+                            ramp_rate=ramp_rate,
+                            status="failed",
+                            error_message="Failed to reach target temperature.",
+                        )
+                        return OperationResult(
+                            success=False,
+                            message="Failed to reach target temperature.",
+                        )
+
+                    self.log_step(
+                        step_type="temperature",
+                        temp_target=target_temp,
+                        ramp_rate=ramp_rate,
+                        status="completed",
+                    )
+
+            except OSError as exc:
+                return OperationResult(
+                    success=False,
+                    message=f"Failed to write temperature log: {exc}",
+                )
+        else:
+            # Run without logging
+            if not run_with_logging():
+                return OperationResult(
+                    success=False,
+                    message="Failed to set temperature.",
+                )
 
         # Read final temperature to return
         final_temp = self.controller.get_temperature()
@@ -595,16 +667,16 @@ if __name__ == "__main__":
 
     # temp_control.set_temperature(120)  # set single temp with defaults
 
-    # result = temp_control.run_temperature_program(
-    #      target_temps=[450, 400, 350, 300, 275, 250, 225, 200, 175, 150, 125, 100, 200],  # °C
-    #      ramp_rates=[10.0],  # °C/min
-    #      hold_times=[35.0, 35.0, 35.0, 35.0, 40.0, 40.0, 45.0, 50.0, 35.0, 35.0, 35.0, 35.0, 10.0],  # min
-    #      experiment_dir=Path("C:\\Data\\nelson\\2026")
-    #  )
-
     result = temp_control.run_temperature_program(
-        target_temps=[120, 140, 160, 180, 200, 225, 250, 275, 300, 350, 400],  # °C
-        ramp_rates=[10.0],  # °C/min
-        hold_times=[30],  # min
-        experiment_dir=Path("C:\\Data\\nelson\\2026"),
-    )
+         target_temps=[450, 400, 350, 300, 275, 250, 225, 200, 180, 160, 140, 120, 100, 200],  # °C
+         ramp_rates=[10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 4.0, 4.0, 4.0, 4.0, 4.0, 10.0],  # °C/min
+         hold_times=[40.0, 40.0, 40.0, 40.0, 45.0, 45.0, 50.0, 60.0, 40.0, 40.0, 40.0, 35.0, 35.0, 10.0],  # min
+         experiment_dir=Path("C:\\Data\\nelson\\2026")
+     )
+
+    # result = temp_control.run_temperature_program(
+    #     target_temps=[120, 140, 160, 180, 200, 225, 250, 275, 300, 350, 400],  # °C
+    #     ramp_rates=[10.0],  # °C/min
+    #     hold_times=[30],  # min
+    #     experiment_dir=Path("C:\\Data\\nelson\\2026"),
+    # )

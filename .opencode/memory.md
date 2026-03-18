@@ -144,25 +144,77 @@ flow_control.set_gas_flows(
 
 ## Session Memory - 2026-03-10
 
-### Experiment State Tracking
-**Implemented complete context in step logging:**
+### Experiment State Tracking & Measured Values Integration
+**Implemented complete context in step logging with measured values from hardware:**
 
 - **State variables added to `ExperimentContext`:**
   - `_current_temp_target` - Current temperature target
+  - `_current_temp_actual` - Current measured temperature (from hardware)
   - `_current_ramp_rate` - Current ramp rate
+  - `_current_hold_minutes` - Current hold duration
   - `_current_gas_flow_sccm` - Current total gas flow
   - `_current_gas_concentrations` - Current gas concentrations dict
 
-- **`set_temperature()` now tracks state:**
-  - Updates `_current_temp_target` and `_current_ramp_rate` at start of method
+- **`set_temperature()` now tracks state AND returns measured values:**
+  - Updates `_current_temp_target`, `_current_ramp_rate`, `_current_temp_actual`, `_current_hold_minutes` at operation start
+  - Returns actual measured temp via `result.data["temp_actual"]`
+  - Polls temperature controller until stabilization
 
-- **`set_gas_flows()` now tracks state:**
-  - Updates `_current_gas_flow_sccm` and `_current_gas_concentrations` at start of method
+- **`set_gas_flows()` now tracks state AND reads back measured concentrations:**
+  - Updates `_current_gas_flow_sccm` and `_current_gas_concentrations` at operation start
+  - Reads actual concentrations from MFCs after setting flows
+  - Polling logic: polls every 0.5s, waits for tolerance (±5%) AND two consecutive identical readings (< 0.1 diff)
+  - Uses cylinder_concentration from calibration for SCCM → ppm conversion
+  - Returns measured concentrations via `result.data["gas_concentrations"]`
+  - Skips N2 (carrier gas) from output
+  - Rounds values to 1 decimal place
 
 - **`log_step()` automatically includes current state:**
-  - Every logged step now includes `temp_target`, `ramp_rate`, `gas_flow_sccm`, and `gas_concentrations`
+  - Every logged step now includes `temp_target`, `temp_actual`, `ramp_rate`, `hold_minutes`, `gas_flow_sccm`, and `gas_concentrations`
   - This ensures downstream analysis has complete context for every step
+  - No manual state tracking needed in experiment scripts
 
-- **Changed `gas_type` to `gas_concentrations` dict:**
-  - Better for downstream parsing
-  - Full gas specification in each step
+- **Modified APIs:**
+  - `step_logger.py`: Added `sample_metadata` parameter, `gas_concentrations` dict field, removed obsolete fields
+  - `brooks_mfc.py`: Renamed `get_flow_rate()` to `get_percent_open()` (clarifies it returns % not SCCM)
+  - `flow_control.py`: Added `_read_gas_concentrations()` method with MFC polling and stabilization check
+  - `scripting.py`: Removed `step_type` parameter from `log_step()` (always "state")
+  - `experiments/steady_state.py`: Updated to use new API with combined temperature+hold calls
+
+### Design Decision: Timeout Behavior
+- `_read_gas_concentrations()` returns last read value on polling timeout
+- Alternative considered but rejected: skip logging concentrations on timeout (loses data)
+- Current approach: conservative fallback ensures no data gaps in logs
+
+### Next Steps
+1. Test the full implementation with hardware
+2. Verify polling stability with real MFC responses
+3. Consider if timeout threshold (default 60s) needs adjustment based on testing
+
+---
+
+## Session Memory - 2026-03-18
+
+### Zero Drift Compensation for NH3
+**Implemented offset-based correction for MFC reading drift at zero setpoint:**
+
+- **Root Issue**: NH3 MFC reads ~0.2% when valve is closed (target 0%), causing erroneous non-zero ppm in JSON logs
+
+- **Solution Design - Offset Parameter:**
+  - Added `offset` field to `gas_routing_map` entries in `config/device_config.yaml`
+  - NH3 configured with `offset: 0.2`
+  - Offset represents the MFC drift value at zero flow
+
+- **Implementation in `src/operations/flow_control.py` `_read_gas_concentrations()`:**
+  - After MFC polling completes, retrieve offset from routing config
+  - If `offset > 0` AND `actual_percent < 1.0%` threshold:
+    - Subtract offset from reading: `actual_percent = max(0.0, actual_percent - offset)`
+    - Example: 0.2% - 0.2% = 0.0%
+    - Example: 0.25% - 0.2% = 0.05% (handles readings slightly above drift)
+    - Floors at 0.0 using `max()` to prevent negative percentages
+
+- **Why This Works:**
+  - Compensates for known hardware drift without requiring policing logic
+  - Applies only to readings below 1% (avoids affecting normal measurements)
+  - Additive per-gas configuration allows different offsets for different channels if needed
+  - Clean subtraction preserves readings above drift threshold

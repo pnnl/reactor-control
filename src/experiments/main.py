@@ -32,7 +32,7 @@ SCRIPT_PATH = Path("experiments/steady_state.py")
 # Set to True only when ready to run with real hardware
 CONNECT_DEVICES = True
 
-# Output directory for experiment data (None = use default from config/paths.yaml)
+# Output directory for experiment data (None = default)
 OUTPUT_DIR = None
 
 
@@ -44,15 +44,6 @@ OUTPUT_DIR = None
 def main() -> None:
     """Run the experiment script."""
 
-    print("=" * 60)
-    print("EXPERIMENT RUNNER")
-    print("=" * 60)
-    print(f"Script: {SCRIPT_PATH}")
-    print(f"Output: {OUTPUT_DIR or 'default'}")
-    print(f"Devices: {'Yes' if CONNECT_DEVICES else 'No (mock mode)'}")
-    print()
-
-    # Check if script exists
     if not SCRIPT_PATH.exists():
         print(f"[ERROR] Script not found: {SCRIPT_PATH}")
         print()
@@ -60,8 +51,6 @@ def main() -> None:
         print("Example scripts are in the experiments/ folder.")
         return
 
-    # Load the experiment script
-    print(f"Loading script: {SCRIPT_PATH}")
     script_globals = {
         "__file__": str(SCRIPT_PATH),
         "__name__": "__experiment_script__",
@@ -74,9 +63,7 @@ def main() -> None:
         print(f"[ERROR] Failed to read script: {exc}")
         return
 
-    # Execute the script
-    # The script should use 'with ExperimentContext(...) as exp: ...'
-    print("Running experiment...")
+    print("\nRunning experiment...")
     print()
 
     try:
@@ -88,9 +75,6 @@ def main() -> None:
 
         traceback.print_exc()
         return
-
-    print()
-    print("Done.")
 
 
 if __name__ == "__main__":

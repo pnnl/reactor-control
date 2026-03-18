@@ -47,28 +47,30 @@ class DataAcquisition(BaseOperation):
         self,
         experiment_name: Optional[str] = None,
         data_directory: Optional[Path] = None,
-        auto_export: Optional[bool] = None,
     ) -> OperationResult:
         """Start data acquisition with ToolWEB.
 
         Args:
             experiment_name: Optional experiment name override.
             data_directory: Optional data directory override.
-            auto_export: Optional auto-export override.
 
         Returns:
             OperationResult indicating success.
         """
 
-        data_defaults = self.defaults.get("data_acquisition", {})
-        if not isinstance(data_defaults, dict):
-            data_defaults = {}
-
-        if auto_export is None:
-            auto_export = bool(data_defaults.get("auto_export", True))
-
+        # Determine data directory: parameter > paths > default fallback
         if data_directory is None:
-            data_dir_value = data_defaults.get("data_directory")
+            # Check self.paths for data_root in data_acquisition section
+            data_paths = self.paths.get("data_acquisition", {})
+            if isinstance(data_paths, dict):
+                data_dir_value = data_paths.get("data_root")
+            else:
+                data_dir_value = None
+
+            # Fall back to top-level paths
+            if data_dir_value is None:
+                data_dir_value = self.paths.get("data_root")
+
             if isinstance(data_dir_value, str) and data_dir_value.strip():
                 data_directory = Path(data_dir_value)
             else:
@@ -78,7 +80,7 @@ class DataAcquisition(BaseOperation):
         if experiment_name is None:
             experiment_name = f"{timestamp}_experiment"
 
-        mks_data_dir = data_directory
+        mks_data_dir = Path(data_directory)
         mks_data_dir.mkdir(parents=True, exist_ok=True)
 
         if not self.toolweb.is_connected:
@@ -101,46 +103,26 @@ class DataAcquisition(BaseOperation):
                 message="Failed to start ToolWEB run.",
             )
 
-        message = "ToolWEB recording started."
-        if not auto_export:
-            message = "ToolWEB recording started (auto export disabled)."
-
         return OperationResult(
             success=True,
-            message=message,
+            message="ToolWEB recording started.",
             data={
                 "experiment_name": experiment_name,
                 "data_directory": str(mks_data_dir),
             },
         )
 
-    def stop_recording(self, auto_export: Optional[bool] = None) -> OperationResult:
+    def stop_recording(self) -> OperationResult:
         """Stop data acquisition.
-
-        Args:
-            auto_export: Optional auto-export override.
 
         Returns:
             OperationResult indicating success.
         """
 
-        data_defaults = self.defaults.get("data_acquisition", {})
-        if not isinstance(data_defaults, dict):
-            data_defaults = {}
-
-        if auto_export is None:
-            auto_export = bool(data_defaults.get("auto_export", True))
-
         if not self.toolweb.stop_run():
             return OperationResult(
                 success=False,
                 message="Failed to stop ToolWEB run.",
-            )
-
-        if not auto_export:
-            return OperationResult(
-                success=True,
-                message="ToolWEB recording stopped (auto export disabled).",
             )
 
         return OperationResult(
@@ -156,10 +138,9 @@ if __name__ == "__main__":
     result = data_acquisition.start_recording(
         experiment_name="20260303_nn2157-147_pdal2o3",
         data_directory=Path("C:\\Data\\nelson\\2026"),
-        auto_export=True,
     )
 
-    # result = data_acquisition.stop_recording(auto_export=True)
+    # result = data_acquisition.stop_recording()
     print(result)
 
     """
