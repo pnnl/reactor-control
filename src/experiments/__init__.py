@@ -1,22 +1,23 @@
 """Experiments layer for reactor control.
 
-Flexible scripting interface for designing experiments.
+Provides an Experiment class for writing flexible experiment scripts.
 
 Example:
-    from src.experiments.scripting import ExperimentContext, Sample
+    from src.experiments import Experiment, Sample
 
-    with ExperimentContext(name="My Experiment") as exp:
-        exp.set_sample(Sample(material_type="catalyst", user_label="Test-001", mass_mg=100.0))
+    exp = Experiment(name="My Experiment", connect_devices=False)
+    try:
+        exp.set_sample(Sample(...))
         exp.set_temperature(target=200, rate=5)
         exp.hold(minutes=30)
-        exp.set_gas_flows(total_flow_rate=100, gas_concentrations={"NO_ppm": 500})
-        exp.hold(minutes=60)
+    finally:
+        exp.close()
 """
 
-from .scripting import ExperimentContext
-from .scripting import Sample
+from ._api import Experiment
+from ._api import Sample
 
 __all__ = [
-    "ExperimentContext",
+    "Experiment",
     "Sample",
 ]

@@ -303,6 +303,7 @@ class FlowControl(BaseOperation):
             Dictionary of actual concentration values by gas name.
         """
         actual_concentrations = {}
+        offset = None
 
         # Polling parameters
         max_wait_seconds = 20.0
@@ -319,7 +320,7 @@ class FlowControl(BaseOperation):
                 hplc_cal = get_hplc_calibration()
                 if self.hplc_pump is not None and self.hplc_pump.is_connected:
                     val = hplc_cal.fit.predict(self.last_water_flow_rate)
-                    actual_concentrations[gas_name] = round(val/total_flow * 100, 1)
+                    actual_concentrations[gas_name] = round(max(val/total_flow * 100, 0.0), 1)
                 continue
 
             if device_type != "mfc":
@@ -328,7 +329,7 @@ class FlowControl(BaseOperation):
             # Skip carrier gas (N2) - not needed in output
             if gas_name.lower() == "n2":
                 continue
-            if gas_name.lower() == "nh3":
+            if gas_name.lower() == "nh3" or gas_name.lower() == "h2":
                 offset = routing.get('offset', 0.2)
 
             port_value = routing.get("port")
@@ -395,7 +396,7 @@ class FlowControl(BaseOperation):
                 last_percent = actual_percent
                 time.sleep(poll_interval)
 
-            if gas_name.lower() == "nh3" and actual_percent < (offset + 0.1):
+            if offset and actual_percent < (offset + 0.1):
                 actual_percent = float(max(0, actual_percent - offset))
                 actual_concentrations[gas_name] = round(actual_percent, 1)
                 continue

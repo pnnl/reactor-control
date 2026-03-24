@@ -67,6 +67,7 @@ gas_routing_map:
     device: mfc
     port: COM4
     channel: 2
+    offset: 0.205
   o2:
     device: mfc
     port: COM4
@@ -79,6 +80,7 @@ gas_routing_map:
     device: mfc
     port: COM5
     channel: 3
+    offset: 0.105
   h2o:
     device: hplc
 

@@ -33,6 +33,7 @@ class StepLogEntry:
         hold_time: Hold duration in minutes.
         gas_concentrations: Gas concentrations as dict (e.g., {"h2": 9300.0, "no": 350.0}).
         gas_flow_sccm: Gas flow setpoint in SCCM.
+        mks_on: Whether the MKS system is collecting data during this step.
         status: Status string.
         error_message: Optional error message.
     """
@@ -45,6 +46,7 @@ class StepLogEntry:
     hold_time: Optional[float] = None
     gas_concentrations: Optional[dict] = None
     gas_flow_sccm: Optional[float] = None
+    mks_on: bool = False
     success: bool = False
     error_message: Optional[str] = None
 
@@ -97,6 +99,7 @@ class StepLogger:
         hold_time: Optional[float] = None,
         gas_concentrations: Optional[dict] = None,
         gas_flow_sccm: Optional[float] = None,
+        mks_on: bool = False,
         success: bool = False,
         error_message: Optional[str] = None,
     ) -> StepLogEntry:
@@ -110,6 +113,7 @@ class StepLogger:
             hold_time: Hold time in minutes.
             gas_concentrations: Gas concentrations dict (measured values).
             gas_flow_sccm: Gas flow in SCCM.
+            mks_on: Whether the MKS system is collecting data during this step.
             success: Whether the step was successful.
             error_message: Optional error message.
 
@@ -130,6 +134,7 @@ class StepLogger:
             hold_time=hold_time,
             gas_concentrations=gas_concentrations,
             gas_flow_sccm=gas_flow_sccm,
+            mks_on=mks_on,
             success=success,
             error_message=error_message,
         )
@@ -190,7 +195,6 @@ if __name__ == "__main__":
     )
 
     logger.log_step(
-        step_type="temperature_ramp",
         temp_target=150.0,
         temp_actual=25.0,
         ramp_rate=10.0,

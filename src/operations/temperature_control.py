@@ -66,6 +66,7 @@ class TemperatureControl(BaseOperation):
         ramp_rates: list[float],
         hold_times: list[float],
         experiment_dir: Optional[Path] = None,
+        log_path: Optional[Path] = None,
         poll_interval: Optional[float] = None,
         ramp_write_interval: Optional[float] = None,
         timeout: Optional[float] = None,
@@ -78,6 +79,7 @@ class TemperatureControl(BaseOperation):
             ramp_rates: Ramp rates in °C/min.
             hold_times: Hold durations in minutes.
             experiment_dir: Optional output directory override.
+            log_path: Optional path for CSV log file. If not provided, uses experiment_dir.
             poll_interval: Optional polling interval in seconds.
             timeout: Optional timeout in seconds.
             abort_checker: Optional callable to signal abort.
@@ -133,8 +135,9 @@ class TemperatureControl(BaseOperation):
         if experiment_dir is None:
             experiment_dir = self.get_data_root()
         experiment_dir.mkdir(parents=True, exist_ok=True)
-        now = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_path = experiment_dir / f"{now}_temperature_log.csv"
+        if log_path is None:
+            now = datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_path = experiment_dir / f"{now}_temperature_log.csv"
 
         if not self.controller.is_connected:
             if not self.controller.connect():
@@ -665,14 +668,14 @@ if __name__ == "__main__":
     val = controller.get_temperature()  # read current temp
     print(f"Current Temperature: {val} °C")
 
-    # temp_control.set_temperature(120)  # set single temp with defaults
+    temp_control.set_temperature(25)  # set single temp with defaults
 
-    result = temp_control.run_temperature_program(
-         target_temps=[450, 400, 350, 300, 275, 250, 225, 200, 180, 160, 140, 120, 100, 200],  # °C
-         ramp_rates=[10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 4.0, 4.0, 4.0, 4.0, 4.0, 10.0],  # °C/min
-         hold_times=[40.0, 40.0, 40.0, 40.0, 45.0, 45.0, 50.0, 60.0, 40.0, 40.0, 40.0, 35.0, 35.0, 10.0],  # min
-         experiment_dir=Path("C:\\Data\\nelson\\2026")
-     )
+    # result = temp_control.run_temperature_program(
+    #      target_temps=[450, 400, 350, 300, 275, 250, 225, 200, 180, 160, 140, 120, 100, 200],  # °C
+    #      ramp_rates=[10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 4.0, 4.0, 4.0, 4.0, 4.0, 10.0],  # °C/min
+    #      hold_times=[45.0, 40.0, 40.0, 40.0, 45.0, 45.0, 50.0, 60.0, 40.0, 40.0, 40.0, 35.0, 35.0, 10.0],  # min
+    #      experiment_dir=Path("C:\\Data\\nelson\\2026")
+    #  )
 
     # result = temp_control.run_temperature_program(
     #     target_temps=[120, 140, 160, 180, 200, 225, 250, 275, 300, 350, 400],  # °C

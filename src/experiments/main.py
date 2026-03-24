@@ -26,7 +26,7 @@ if str(SRC_PATH) not in sys.path:
 #   - experiments/my_experiment.py
 #   - experiments/example_nox_test.py
 #   - C:/Users/labuser/my_experiments/test.py
-SCRIPT_PATH = Path("experiments/steady_state.py")
+SCRIPT_PATH = Path("src/experiments/steady_state.py")
 
 # Connect to physical devices?
 # Set to True only when ready to run with real hardware
@@ -67,7 +67,7 @@ def main() -> None:
     print()
 
     try:
-        exec(compile(script_code, SCRIPT_PATH, "exec"), script_globals)
+            exec(compile(script_code, SCRIPT_PATH, "exec"), script_globals)
     except Exception as exc:
         print()
         print(f"[ERROR] Experiment failed: {exc}")
