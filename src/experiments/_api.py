@@ -83,7 +83,7 @@ class Experiment:
 
     def __init__(
         self,
-        name: str = "experiment",
+        name: str = "",
         output_dir: Optional[Path] = None,
         connect_devices: bool = False,
         defaults: Optional[dict[str, Any]] = None,
@@ -218,7 +218,7 @@ class Experiment:
         target: float,
         rate: Optional[float] = None,
         hold_minutes: Optional[float] = None,
-        log_step: bool = True,
+        log_step: bool = False,
     ) -> None:
         """Set the temperature."""
         self._current_temp_target = target

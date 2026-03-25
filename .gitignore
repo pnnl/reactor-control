@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 .DS_Store
 .env.loc
-
+.ruff_cache/
 
 # folders
 tests/
@@ -11,3 +11,9 @@ hardware_manuals/
 docs/
 .vscode/
 .ruff_cache/
+
+# data
+*.csv
+*.json
+*.log
+*.prn

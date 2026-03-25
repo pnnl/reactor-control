@@ -218,3 +218,79 @@ flow_control.set_gas_flows(
   - Applies only to readings below 1% (avoids affecting normal measurements)
   - Additive per-gas configuration allows different offsets for different channels if needed
   - Clean subtraction preserves readings above drift threshold
+
+---
+
+## Session Memory - 2026-03-24
+
+### Data Visualization Module Created
+**New `src/visualization/` package for processing and visualizing experiment data:**
+
+- **`__init__.py`** - Package initialization with public API exports:
+  - `ExperimentData` dataclass
+  - `load_experiment_data()` main function
+  - `load_ftir_data()`, `load_temperature_data()`, `load_experiment_steps()` individual loaders
+
+- **`data_loader.py`** - Data loading and alignment module (314 lines):
+  - `FTIR_COLUMNS` constant - Maps analyte names to column names in .prn files:
+    - `no`: "NO (350,3000) 191C"
+    - `no2`: "NO2 (150) 191C (1of2)"
+    - `n2o`: "N2O (100,200,300) 191C (1of2)"
+    - `nh3`: "NH3 (300) 191C (1of2)"
+  - `_parse_ftir_datetime()` - Parses M/D/YYYY and HH:MM:SS.mmm timestamps
+  - `_parse_csv_datetime()` - Parses ISO format timestamps
+  - `load_ftir_data()` - Loads .prn files (tab-delimited with headers)
+  - `load_temperature_data()` - Loads .csv files (datetime, target_temp, read_temp)
+  - `load_experiment_steps()` - Loads .json experiment step records
+  - `align_ftir_to_temperature()` - Aligns FTIR readings to nearest temperature reading
+  - `load_experiment_data()` - High-level function loading all data with optional alignment
+
+- **`ExperimentData` dataclass** - Container for aligned experiment data:
+  - `ftir` - DataFrame with FTIR readings and parsed datetime
+  - `temperature` - DataFrame with temperature log readings
+  - `steps` - List of experiment step dictionaries
+  - `experiment_id` - Experiment identifier
+  - `sample_info` - Sample metadata (optional)
+
+- **Sample data files in `src/visualization/`:**
+  - `20260318_084229_steady-state.prn` - FTIR spectroscopy data (tab-delimited)
+  - `20260318_084229_steady-state.csv` - Temperature log (datetime, target_temp, read_temp)
+  - `20260318_084229_steady-state.json` - Experiment steps with sample metadata
+
+---
+
+## Session Memory - 2026-03-24 (Continued)
+
+### Steady-State Analysis Refactoring
+**Major reorganization of data analysis and visualization:**
+
+- **`src/analyze/` package** - Data processing:
+  - `data_loader.py` - File loading (PRN, CSV, JSON), temperature alignment
+  - `analyze_ss.py` - Steady-state analysis:
+    - `identify_isothermal_ranges()` - Finds isothermal periods (temp ±1.5°C for ≥15 min)
+    - `get_steady_state_df()` - Extracts mean/std from last 10% of each range
+    - `load_and_process()` - Loads experiment, processes, saves CSV, returns (df, path)
+    - `_load_data_root()` - Reads data_root from config/paths.yaml
+    - `IsothermalRange`, `SteadyStateValue` dataclasses
+
+- **`src/visualization/` package** - Plotting only:
+  - `plot_ss.py` - `plot_concentrations_vs_temperature()`, `plot_steady_state()`
+  - `data_loader.py` removed (moved to analyze)
+
+- **`src/experiments/steady_state.py`** - Clean entry point:
+  - `run_steady_state()` - Runs experiment, calls `load_and_process()`, exports
+  - Removed `main.py` (was launcher, no longer needed)
+
+- **`src/experiments/_api.py`** - `_load_data_root()` already existed here
+
+### Key API Design Decisions:
+- `load_and_process(experiment_id, data_root=None, species=None, fraction=0.1)` 
+  - Returns `(ss_df, output_path)` tuple
+  - data_root defaults to None (loads from config internally)
+  - Handles file loading, range detection, steady-state extraction, CSV save
+- `plot_steady_state()` takes pre-processed ss_df, not raw ftir_df
+
+### Data Format Reference:
+- **PRN (FTIR)**: Tab-delimited, Date="M/D/YYYY", Time="HH:MM:SS.mmm"
+- **CSV (Temperature)**: datetime="2026-03-18T08:48:12.255721", target_temp, read_temp
+- **JSON (Steps)**: ISO timestamps, includes gas_concentrations, temp_target, temp_actual
