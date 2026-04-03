@@ -158,6 +158,34 @@ class Experiment:
         if not self._finished:
             self._finished = True
             self._is_running = False
+
+            if self._temperature_control is not None:
+                try:
+                    if hasattr(self._temperature_control, "controller"):
+                        self._temperature_control.controller.disconnect()
+                except Exception as exc:
+                    self._logger.warning(
+                        f"Error disconnecting temperature control: {exc}"
+                    )
+
+            if self._flow_control is not None:
+                try:
+                    for mfc in self._flow_control.mfc_devices:
+                        if hasattr(mfc, "disconnect"):
+                            mfc.disconnect()
+                    if self._flow_control.hplc_pump is not None:
+                        if hasattr(self._flow_control.hplc_pump, "disconnect"):
+                            self._flow_control.hplc_pump.disconnect()
+                except Exception as exc:
+                    self._logger.warning(f"Error disconnecting flow control: {exc}")
+
+            if self._data_acquisition is not None:
+                try:
+                    if hasattr(self._data_acquisition, "toolweb"):
+                        self._data_acquisition.toolweb.disconnect()
+                except Exception as exc:
+                    self._logger.warning(f"Error disconnecting data acquisition: {exc}")
+
             self._logger.info(f"=== Experiment Finished: {self.name} ===")
 
     def __del__(self) -> None:
@@ -372,7 +400,7 @@ class Experiment:
         else:
             self._logger.warning(f"Failed to set gas flows: {result.errors}")
 
-    def standby(self, temperature: float = 150.0) -> None:
+    def standby(self, temperature: float = 120.0) -> None:
         """Stop all flows and set temperature to standby."""
         if self._flow_control is not None:
             try:
@@ -428,7 +456,7 @@ class Experiment:
         else:
             self._logger.warning(f"Failed to start data collection: {result.message}")
 
-    def stop_data_collection(self, log_step: bool = True) -> None:
+    def stop_data_collection(self, log_step: bool = False) -> None:
         """Stop data collection."""
         if self._data_acquisition is None:
             self._logger.warning("Mock stop_data_collection")

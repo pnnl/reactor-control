@@ -14,8 +14,8 @@ Example:
         exp.close()
 """
 
-from ._api import Experiment
-from ._api import Sample
+from .api import Experiment
+from .api import Sample
 
 __all__ = [
     "Experiment",

@@ -16,6 +16,11 @@ from pathlib import Path
 
 import pandas as pd
 
+import sys
+SRC_PATH = Path(__file__).resolve().parent.parent.parent
+if str(SRC_PATH) not in sys.path:
+    sys.path.insert(0, str(SRC_PATH))
+
 from src.analyze.data_loader import load_experiment_data
 
 
@@ -256,7 +261,7 @@ def load_and_process(
     data_root: Path | None = None,
     species: list[str] | None = None,
     fraction: float = 0.1,
-) -> tuple[pd.DataFrame, Path]:
+) -> pd.DataFrame:
     """Load experiment and extract steady-state data.
 
     Args:
@@ -267,8 +272,7 @@ def load_and_process(
         fraction: Fraction of isothermal range to use for steady-state (default 0.1 = 10%).
 
     Returns:
-        Tuple of (DataFrame with columns: temp_mean, temp_std, {species}_mean, {species}_std,
-                 Path to saved CSV file).
+        DataFrame with columns: temp_mean, temp_std, {species}_mean, {species}_std.
     """
     if data_root is None:
         data_root = _load_data_root()
@@ -286,3 +290,7 @@ def load_and_process(
     ss_df.to_csv(output_path, index=False)
 
     return ss_df
+
+if __name__ == "__main__":
+
+    ss_df = load_and_process("20260402_141450_steady-state")

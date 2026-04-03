@@ -480,6 +480,9 @@ class FlowControl(BaseOperation):
             if gas_name.lower() == "n2":
                 flow_rate = 10.0
                 self.logger.info(f"Setting carrier gas {gas_name} to {flow_rate}%")
+            elif gas_name.lower() == "o2":
+                flow_rate = 5.0
+                self.logger.info(f"Setting {gas_name} to {flow_rate}% for standby")
             else:
                 flow_rate = 0.0
 
@@ -687,22 +690,17 @@ if __name__ == "__main__":
     safety_interlocks = SafetyInterlocks()
     flow_control = FlowControl(mfc, hplc, safety_interlocks)
 
-    # Set gas concentrations (ppm for most, percent for O2)
-    result = flow_control.set_gas_concentrations(
-        {
-            "h2": 0.0,  # ppm
-            "nh3": 0.0,  # ppm
-            "no": 0.0,  # ppm
-            "o2": 10.0,  # percent
-            "h2o": 6.0,  # percent
-        },
-        total_flow_rate=380,  # sccm total flow
-        experiment_dir=Path("C:\\Data\\nelson\\2026"),
-    )
+    # # Set gas concentrations (ppm for most, percent for O2)
+    # result = flow_control.set_gas_concentrations(
+    #     {
+    #         "h2": 0.0,  # ppm
+    #         "nh3": 0.0,  # ppm
+    #         "no": 0.0,  # ppm
+    #         "o2": 10.0,  # percent
+    #         "h2o": 6.0,  # percent
+    #     },
+    #     total_flow_rate=380,  # sccm total flow
+    #     experiment_dir=Path("C:\\Data\\nelson\\2026"),
+    # )
 
     flow_control.set_standby_flow()
-
-    """1. Need to look at 0 flow and make sure no decimal flow rates ~NH3 is 14.7 at setting of 0
-    2. Need to turn to 'closed' if flow is 0. But is that based off of nominal value or calibration value??
-    3. Round the flow values to nearest tenth
-    """
