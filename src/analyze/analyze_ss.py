@@ -10,13 +10,14 @@ Example:
 
 from __future__ import annotations
 
+import json
 import yaml
 from dataclasses import dataclass
 from pathlib import Path
-
+import sys
 import pandas as pd
 
-import sys
+
 SRC_PATH = Path(__file__).resolve().parent.parent.parent
 if str(SRC_PATH) not in sys.path:
     sys.path.insert(0, str(SRC_PATH))
@@ -158,6 +159,65 @@ def identify_isothermal_ranges(
     return ranges
 
 
+def ss_ranges_to_isothermal_ranges(
+    ss_ranges: list[dict],
+    ftir_df: pd.DataFrame,
+    temp_col: str = "aligned_read_temp",
+    time_col: str = "datetime",
+) -> list[IsothermalRange]:
+    """Convert ss_ranges (time boundaries) to IsothermalRange objects.
+
+    Args:
+        ss_ranges: List of dicts with "begin_time" and "end_time" as ISO datetime strings.
+        ftir_df: DataFrame with temperature and datetime columns.
+        temp_col: Name of temperature column.
+        time_col: Name of datetime column.
+
+    Returns:
+        List of IsothermalRange objects.
+    """
+    ranges = []
+    ftir_times = pd.to_datetime(ftir_df[time_col])
+    temps = ftir_df[temp_col].values
+
+    for ss_range in ss_ranges:
+        begin_str = ss_range.get("begin_time")
+        end_str = ss_range.get("end_time")
+
+        if not begin_str or not end_str:
+            continue
+
+        begin_time = pd.to_datetime(begin_str)
+        end_time = pd.to_datetime(end_str)
+
+        mask = (ftir_times >= begin_time) & (ftir_times <= end_time)
+        indices = ftir_times[mask].index.tolist()
+
+        if len(indices) == 0:
+            continue
+
+        start_idx = indices[0]
+        end_idx = indices[-1]
+        range_temps = temps[start_idx : end_idx + 1]
+
+        mean_temp = float(pd.Series(range_temps).mean())
+        std_temp = float(pd.Series(range_temps).std()) if len(range_temps) > 1 else 0.0
+
+        ranges.append(
+            IsothermalRange(
+                start_idx=start_idx,
+                end_idx=end_idx,
+                start_time=begin_time,
+                end_time=end_time,
+                mean_temp=mean_temp,
+                std_temp=std_temp,
+                n_points=len(indices),
+            )
+        )
+
+    return ranges
+
+
 def get_steady_state_data(
     ftir_df: pd.DataFrame,
     ranges: list[IsothermalRange],
@@ -256,23 +316,96 @@ def get_steady_state_df(
     return pd.DataFrame(rows)
 
 
+def compute_conversions(
+    ss_df: pd.DataFrame,
+    inlet_no: float = None,
+    inlet_nh3: float = None,
+    inlet_no2: float = None,
+    inlet_n2o: float = None,
+) -> pd.DataFrame:
+    """Compute NOx/NH3 conversion and N2O/NO2 selectivity.
+
+    Args:
+        ss_df: DataFrame with species concentration columns.
+        inlet_no: Inlet NO concentration (ppm).
+        inlet_nh3: Inlet NH3 concentration (ppm).
+        inlet_no2: Inlet NO2 concentration (ppm).
+        inlet_n2o: Inlet N2O concentration (ppm).
+
+    Returns:
+        DataFrame with added conversion and selectivity columns.
+    """
+    df = ss_df.copy()
+
+    no_out = df["no_mean"]
+    no2_out = df["no2_mean"]
+    nh3_out = df["nh3_mean"]
+    n2o_out = df["n2o_mean"]
+
+    inlet_nox = inlet_no + inlet_no2
+    outlet_nox = no_out + no2_out
+    nox_consumed = inlet_nox - outlet_nox
+
+    df["nox_conv"] = nox_consumed / inlet_nox * 100
+    if inlet_nh3 > 0:
+        df["nh3_conv"] = (inlet_nh3 - nh3_out) / inlet_nh3 * 100
+    else:
+        df["nh3_conv"] = None
+        df["nh3_sel"] = (nh3_out - inlet_nh3) / nox_consumed * 100
+    df["n2o_sel"] = 2 * (n2o_out - inlet_n2o) / nox_consumed * 100
+    df["no2_sel"] = (no2_out - inlet_no2) / nox_consumed * 100
+
+    df.loc[nox_consumed <= 0, ["n2o_sel", "no2_sel", "nh3_sel"]] = None
+    df.loc[df["no2_sel"] <= 0, ["no2_sel"]] = None
+    df.loc[df["nh3_sel"] <= 0, "nh3_sel"] = None
+
+    df["n2"] = (nox_consumed + (2 * (inlet_n2o - n2o_out)) + (inlet_nh3 - nh3_out)) / 2
+    df["n2_sel"] = (2 * df["n2"] / nox_consumed) * 100
+    df["mass_balance"] = df["n2o_sel"] + df["nh3_sel"] + df["n2_sel"]
+
+    result = df[
+        [
+            "nox_conv",
+            "nh3_conv",
+            "n2o_sel",
+            "no2_sel",
+            "nh3_sel",
+            "n2_sel",
+            "n2",
+            "mass_balance",
+        ]
+    ].copy()
+    return result.round(2)  # type: ignore[return-value]
+
+
 def load_and_process(
     experiment_id: str,
+    ss_ranges: list[dict] | None = None,
     data_root: Path | None = None,
     species: list[str] | None = None,
     fraction: float = 0.1,
+    inlet_no: float = 340.0,
+    inlet_nh3: float = 0.0,
+    inlet_no2: float = 10.0,
+    inlet_n2o: float = 0.0,
 ) -> pd.DataFrame:
     """Load experiment and extract steady-state data.
 
     Args:
         experiment_id: Experiment identifier (e.g., "20260324_123456_steady-state").
+        ss_ranges: Optional list of steady-state time ranges.
+            Each dict contains "begin_time" and "end_time" as ISO datetime strings.
+            If provided, uses these ranges instead of auto-detection.
         data_root: Root directory where experiment data is stored.
             Defaults to None (loads from config/paths.yaml).
-        species: Species to extract. Defaults to ["no", "no2", "n2o", "nh3"].
+        species: List of species to extract. Defaults to ["no", "no2", "n2o", "nh3"].
         fraction: Fraction of isothermal range to use for steady-state (default 0.1 = 10%).
-
+        inlet_no: Inlet NO concentration in ppm (default 340.0).
+        inlet_nh3: Inlet NH3 concentration in ppm (default 0.0).
+        inlet_no2: Inlet NO2 concentration in ppm (default 10.0).
+        inlet_n2o: Inlet N2O concentration in ppm (default 0.0).
     Returns:
-        DataFrame with columns: temp_mean, temp_std, {species}_mean, {species}_std.
+        DataFrame with columns: nox_conv, nh3_conv, n2o_sel, no2_sel.
     """
     if data_root is None:
         data_root = _load_data_root()
@@ -283,14 +416,31 @@ def load_and_process(
     if data is None:
         raise ValueError(f"Failed to load experiment data for: {experiment_id}")
 
-    ranges = identify_isothermal_ranges(data.ftir)
+    if ss_ranges:
+        ranges = ss_ranges_to_isothermal_ranges(ss_ranges, data.ftir)
+    else:
+        ranges = identify_isothermal_ranges(data.ftir)
     ss_df = get_steady_state_df(data.ftir, ranges, species, fraction)
+    result_df = compute_conversions(ss_df, inlet_no, inlet_nh3, inlet_no2, inlet_n2o)
+
+    merged_df = pd.concat(
+        [ss_df.reset_index(drop=True), result_df.reset_index(drop=True)], axis=1
+    )
 
     output_path = data_root / f"{experiment_id}_processed.csv"
-    ss_df.to_csv(output_path, index=False)
+    merged_df.to_csv(output_path, index=False)
 
-    return ss_df
+    if ss_ranges is not None:
+        json_path = data_root / f"{experiment_id}.json"
+        if json_path.exists():
+            with json_path.open("r", encoding="utf-8") as f:
+                existing = json.load(f)
+            existing["ss_ranges"] = ss_ranges
+            with json_path.open("w", encoding="utf-8") as f:
+                json.dump(existing, f, indent=2)
+
+    return merged_df
+
 
 if __name__ == "__main__":
-
-    ss_df = load_and_process("20260402_141450_steady-state")
+    ss_df = load_and_process("20260406_162809_steady-state")

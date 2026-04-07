@@ -132,6 +132,8 @@ class TemperatureControl(BaseOperation):
             else float(temperature_defaults.get("timeout", 3600.0))
         )
 
+        ss_ranges: list[dict] = []
+
         if experiment_dir is None:
             experiment_dir = self.get_data_root()
         experiment_dir.mkdir(parents=True, exist_ok=True)
@@ -193,7 +195,6 @@ class TemperatureControl(BaseOperation):
                             ramp_rate=step.ramp_rate,
                             hold_time=step.hold_time_min,
                             status="failed",
-                            error_message="Ramp aborted or failed.",
                         )
                         return OperationResult(
                             success=False,
@@ -216,26 +217,32 @@ class TemperatureControl(BaseOperation):
                             ramp_rate=step.ramp_rate,
                             hold_time=step.hold_time_min,
                             status="failed",
-                            error_message="Failed to reach target.",
                         )
                         return OperationResult(
                             success=False,
                             message=f"Failed to reach target {step.target_temp}°C.",
                         )
 
-                    duration_s = self._hold(
-                        writer,
-                        handle,
-                        step.target_temp,
-                        step.hold_time_min,
-                        poll_interval,
-                        abort_checker,
+                    duration_s, begin_time, end_time = self._hold(
+                        writer=writer,
+                        handle=handle,
+                        target=step.target_temp,
+                        hold_time_min=step.hold_time_min,
+                        poll_interval=poll_interval,
+                        abort_checker=abort_checker,
                     )
                     if duration_s is None:
                         return OperationResult(
                             success=False,
                             message="Aborted during hold period.",
                         )
+
+                    ss_ranges.append(
+                        {
+                            "begin_time": begin_time.isoformat(),
+                            "end_time": end_time.isoformat(),
+                        }
+                    )
 
                     self.log_step(
                         step_type="temperature",
@@ -254,7 +261,11 @@ class TemperatureControl(BaseOperation):
                 errors=[str(exc)],
             )
 
-        return OperationResult(success=True, message="Temperature program completed.")
+        return OperationResult(
+            success=True,
+            message="Temperature program completed.",
+            data={"ss_ranges": ss_ranges},
+        )
 
     def set_temperature(
         self,
@@ -332,7 +343,6 @@ class TemperatureControl(BaseOperation):
                     temp_target=target_temp,
                     ramp_rate=ramp_rate,
                     status="failed",
-                    error_message="Failed to apply setpoint ramp.",
                 )
                 return False
 
@@ -350,7 +360,6 @@ class TemperatureControl(BaseOperation):
                     temp_target=target_temp,
                     ramp_rate=ramp_rate,
                     status="failed",
-                    error_message="Failed to reach target temperature.",
                 )
                 return False
 
@@ -385,7 +394,6 @@ class TemperatureControl(BaseOperation):
                             temp_target=target_temp,
                             ramp_rate=ramp_rate,
                             status="failed",
-                            error_message="Failed to apply setpoint ramp.",
                         )
                         return OperationResult(
                             success=False,
@@ -407,7 +415,6 @@ class TemperatureControl(BaseOperation):
                             temp_target=target_temp,
                             ramp_rate=ramp_rate,
                             status="failed",
-                            error_message="Failed to reach target temperature.",
                         )
                         return OperationResult(
                             success=False,
@@ -609,15 +616,21 @@ class TemperatureControl(BaseOperation):
         hold_time_min: float,
         poll_interval: float,
         abort_checker: Optional[Callable[[], bool]],
-    ) -> Optional[float]:
-        """Hold temperature for the specified duration."""
+    ) -> tuple[Optional[float], datetime, datetime]:
+        """Hold temperature for the specified duration.
 
+        Returns:
+            Tuple of (duration_s, begin_time, end_time).
+            duration_s is None if aborted.
+        """
+
+        begin_time = datetime.now()
         duration_s = hold_time_min * 60.0
         start_time = time.monotonic()
         last_print = start_time
         while time.monotonic() - start_time < duration_s:
             if abort_checker and abort_checker():
-                return None
+                return None, begin_time, datetime.now()
             read_temp = self.controller.get_temperature()
             self._log_temperature(writer, handle, target, read_temp)
             last_print = self._print_heating_status(
@@ -629,7 +642,8 @@ class TemperatureControl(BaseOperation):
                 0.0,
             )
             time.sleep(poll_interval)
-        return duration_s
+        end_time = datetime.now()
+        return duration_s, begin_time, end_time
 
     def _log_temperature(
         self,

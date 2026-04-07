@@ -320,7 +320,14 @@ class FlowControl(BaseOperation):
                 hplc_cal = get_hplc_calibration()
                 if self.hplc_pump is not None and self.hplc_pump.is_connected:
                     val = hplc_cal.fit.predict(self.last_water_flow_rate)
-                    actual_concentrations[gas_name] = round(max(val/total_flow * 100, 0.0), 1)
+                    if total_flow is None:
+                        actual_concentrations[gas_name] = round(
+                            max(val*100, 0.0), 1
+                        )                    
+                    else:
+                        actual_concentrations[gas_name] = round(
+                            max(val / total_flow * 100, 0.0), 1
+                        )
                 continue
 
             if device_type != "mfc":
@@ -330,7 +337,7 @@ class FlowControl(BaseOperation):
             if gas_name.lower() == "n2":
                 continue
             if gas_name.lower() == "nh3" or gas_name.lower() == "h2":
-                offset = routing.get('offset', 0.2)
+                offset = routing.get("offset", 0.2)
 
             port_value = routing.get("port")
             channel_value = routing.get("channel", 1)
@@ -428,7 +435,7 @@ class FlowControl(BaseOperation):
                     if total_flow and total_flow > 0:
                         concentration = (actual_sccm / total_flow) * cylinder_conc
                     else:
-                        concentration = 0.0
+                        concentration = (actual_sccm/actual_sccm) * cylinder_conc
                     actual_concentrations[gas_name] = round(concentration, 1)
                 else:
                     actual_percent = (
@@ -560,6 +567,17 @@ class FlowControl(BaseOperation):
                     message="Failed to stop HPLC pump.",
                 )
         else:
+            if self.safety_interlocks is not None:
+                ok, violations = self.safety_interlocks.check_all_targets(
+                    check_hplc_temp=True
+                )
+                if not ok:
+                    return OperationResult(
+                        success=False,
+                        message=f"HPLC temperature safety interlock violation: {violations}",
+                        errors=violations,
+                    )
+
             if not self.hplc_pump.set_flow_rate(water_flow_rate, microbore=microbore):
                 return OperationResult(
                     success=False,
@@ -580,6 +598,21 @@ class FlowControl(BaseOperation):
         )
 
         return OperationResult(success=True, message="Water flow set.")
+
+    def check_hplc_safe_temperature(
+        self,
+    ) -> tuple[bool, Optional[str], Optional[float]]:
+        """Check if temperature is safe for HPLC pump.
+
+        Returns:
+            Tuple of (is_safe, message, current_temp).
+            - is_safe=True: OK to run pump
+            - is_safe=False: Temperature issue
+        """
+        if self.safety_interlocks is None:
+            return True, None, None
+
+        return self.safety_interlocks.check_hplc_temperature()
 
     def _resolve_mfc_by_port(self, port: str) -> Optional[BrooksMFC]:
         """Resolve MFC device by port."""

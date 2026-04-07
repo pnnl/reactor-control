@@ -30,6 +30,7 @@ from typing import Optional
 from src.operations.data_acquisition import DataAcquisition
 from src.operations.flow_control import FlowControl
 from src.operations.sample_management import SampleManager
+from src.operations.safety_interlocks import SafetyInterlocks
 from src.operations.step_logger import StepLogger
 from src.operations.temperature_control import TemperatureControl
 
@@ -102,6 +103,7 @@ class Experiment:
         self._temperature_control: Optional[TemperatureControl] = None
         self._flow_control: Optional[FlowControl] = None
         self._data_acquisition: Optional[DataAcquisition] = None
+        self._safety_interlocks: Optional[SafetyInterlocks] = None
         self._step_logger: Optional[StepLogger] = None
         self._is_running: bool = False
         self._finished: bool = False  # Track if finish was logged
@@ -114,6 +116,7 @@ class Experiment:
         self._current_gas_flow_sccm: Optional[float] = None
         self._current_gas_concentrations: dict = {}
         self._mks_on: bool = False
+        self.ss_ranges: list = []
 
         # Set up logging
         self._logger = logging.getLogger(f"{__name__}.Experiment")
@@ -351,6 +354,7 @@ class Experiment:
                     self._current_temp_actual = (
                         self._temperature_control.controller.get_temperature()
                     )
+            self.ss_ranges = result.data.get("ss_ranges", []) if result.data else []
             return True
         else:
             self._logger.warning(f"Temperature program failed: {result.message}")
@@ -380,6 +384,23 @@ class Experiment:
             if log_step:
                 self.log_step()
             return
+
+        if "h2o" in gas_concentrations and gas_concentrations["h2o"] > 0:
+            is_safe, error_msg, current_temp = (
+                self._flow_control.check_hplc_safe_temperature()
+            )
+            if not is_safe:
+                if current_temp is not None and self._safety_interlocks:
+                    safe_temp = self._safety_interlocks.limits.max_hplc_temperature
+                    self._logger.warning(
+                        f"Temperature {current_temp}°C below HPLC limit. "
+                        f"Heating to {safe_temp}°C..."
+                    )
+                    self._ensure_temperature_control()
+                    if self._temperature_control:
+                        self._temperature_control.set_temperature(
+                            safe_temp, ramp_rate=0
+                        )
 
         self._logger.info(f"Setting gas flows: {total_flow_rate} SCCM total")
         for gas, value in gas_concentrations.items():
@@ -506,6 +527,31 @@ class Experiment:
     # Internal Helpers
     # =========================================================================
 
+    def _ensure_safety_interlocks(self) -> None:
+        """Ensure safety interlocks is initialized with all required devices."""
+        if self._safety_interlocks is not None or not self.connect_devices:
+            return
+        try:
+            from src.core.config import DeviceConfig
+            from src.devices.brooks_mfc import BrooksMFC
+            from src.devices.hplc_pump import HPLCPump
+            from src.devices.omega_cn7600 import OmegaCN7600
+
+            config = DeviceConfig()
+            omega = OmegaCN7600(port=config.omega_port, config=config)
+            mfc_devices = [
+                BrooksMFC(port=port, config=config) for port in config.mfc_ports
+            ]
+            hplc_pump = HPLCPump() if config.hplc_port else None
+            self._safety_interlocks = SafetyInterlocks(
+                temperature_controller=omega,
+                mfc_devices=mfc_devices,
+                hplc_pump=hplc_pump,
+                defaults=self.defaults,
+            )
+        except Exception as exc:
+            self._logger.error(f"Failed to initialize safety interlocks: {exc}")
+
     def _ensure_temperature_control(self) -> None:
         """Ensure temperature control is initialized."""
         if self._temperature_control is not None or not self.connect_devices:
@@ -514,8 +560,15 @@ class Experiment:
             from src.core.config import DeviceConfig
             from src.devices.omega_cn7600 import OmegaCN7600
 
-            config = DeviceConfig()
-            controller = OmegaCN7600(port=config.omega_port, config=config)
+            self._ensure_safety_interlocks()
+            if (
+                self._safety_interlocks
+                and self._safety_interlocks.temperature_controller
+            ):
+                controller = self._safety_interlocks.temperature_controller
+            else:
+                config = DeviceConfig()
+                controller = OmegaCN7600(port=config.omega_port, config=config)
             self._temperature_control = TemperatureControl(
                 controller=controller, defaults=self.defaults
             )
@@ -531,13 +584,17 @@ class Experiment:
             from src.devices.brooks_mfc import BrooksMFC
             from src.devices.hplc_pump import HPLCPump
 
+            self._ensure_safety_interlocks()
             config = DeviceConfig()
             mfc_devices = [
                 BrooksMFC(port=port, config=config) for port in config.mfc_ports
             ]
             hplc_pump = HPLCPump() if config.hplc_port else None
             self._flow_control = FlowControl(
-                mfc_devices=mfc_devices, hplc_pump=hplc_pump, defaults=self.defaults
+                mfc_devices=mfc_devices,
+                hplc_pump=hplc_pump,
+                safety_interlocks=self._safety_interlocks,
+                defaults=self.defaults,
             )
         except Exception as exc:
             self._logger.error(f"Failed to initialize flow control: {exc}")

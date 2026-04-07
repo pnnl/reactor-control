@@ -1,5 +1,6 @@
 safety_limits:
   max_temperature: 800.0
+  max_hplc_temperature: 110.0
   max_total_flow: 1000.0
   min_carrier_flow: 0.0
   max_ramp_rate: 50.0

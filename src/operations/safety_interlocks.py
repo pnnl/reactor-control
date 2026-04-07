@@ -33,6 +33,7 @@ class SafetyLimits:
 
     Args:
         max_temperature: Maximum allowable temperature in °C.
+        max_hplc_temperature: Maximum temperature for HPLC pump operation in °C.
         max_total_flow: Maximum total gas flow in SCCM.
         min_carrier_flow: Minimum carrier gas flow in SCCM.
         max_ramp_rate: Maximum allowable ramp rate in °C/min.
@@ -40,6 +41,7 @@ class SafetyLimits:
     """
 
     max_temperature: float = 800.0
+    max_hplc_temperature: float = 110.0
     max_total_flow: float = 1000.0
     min_carrier_flow: float = 0.0
     max_ramp_rate: float = 50.0
@@ -61,6 +63,9 @@ class SafetyLimits:
             values = {}
         return cls(
             max_temperature=float(values.get("max_temperature", cls.max_temperature)),
+            max_hplc_temperature=float(
+                values.get("max_hplc_temperature", cls.max_hplc_temperature)
+            ),
             max_total_flow=float(values.get("max_total_flow", cls.max_total_flow)),
             min_carrier_flow=float(
                 values.get("min_carrier_flow", cls.min_carrier_flow)
@@ -169,6 +174,35 @@ class SafetyInterlocks(BaseOperation):
             )
         return True, None
 
+    def check_hplc_temperature(self) -> tuple[bool, Optional[str], Optional[float]]:
+        """Check current temperature against safe limit for HPLC pump.
+
+        Returns:
+            Tuple of (is_safe, violation_message, current_temp).
+        """
+
+        if self.temperature_controller is None:
+            self.logger.error(
+                "No temperature controller configured for HPLC safety check"
+            )
+            return False, "Temperature controller not configured", None
+
+        if not self.temperature_controller.is_connected:
+            if not self.temperature_controller.connect():
+                return False, "Failed to connect temperature controller", None
+
+        current_temp = self.temperature_controller.get_temperature()
+        if current_temp is None:
+            return False, "Cannot read current temperature for HPLC safety check", None
+
+        if current_temp < self.limits.max_hplc_temperature:
+            return (
+                False,
+                f"Current temperature {current_temp}°C below HPLC safe limit ({self.limits.max_hplc_temperature}°C)",
+                current_temp,
+            )
+        return True, None, current_temp
+
     def check_carrier_flow(self, flow_sccm: float) -> tuple[bool, Optional[str]]:
         """Check carrier gas flow against minimum limits.
 
@@ -193,6 +227,7 @@ class SafetyInterlocks(BaseOperation):
         ramp_rate: Optional[float] = None,
         water_flow_ml_min: Optional[float] = None,
         carrier_flow_sccm: Optional[float] = None,
+        check_hplc_temp: bool = False,
     ) -> tuple[bool, list[str]]:
         """Check all provided targets against safety limits.
 
@@ -202,6 +237,7 @@ class SafetyInterlocks(BaseOperation):
             ramp_rate: Ramp rate in °C/min.
             water_flow_ml_min: Water flow in mL/min.
             carrier_flow_sccm: Carrier gas flow in SCCM.
+            check_hplc_temp: If True, check current temperature against HPLC limit.
 
         Returns:
             Tuple of (is_safe, list of violation messages).
@@ -226,6 +262,11 @@ class SafetyInterlocks(BaseOperation):
 
         if water_flow_ml_min is not None:
             ok, message = self.check_water_flow(water_flow_ml_min)
+            if not ok and message:
+                violations.append(message)
+
+        if check_hplc_temp:
+            ok, message, temp = self.check_hplc_temperature()
             if not ok and message:
                 violations.append(message)
 

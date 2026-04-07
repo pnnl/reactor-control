@@ -35,7 +35,6 @@ class StepLogEntry:
         gas_flow_sccm: Gas flow setpoint in SCCM.
         mks_on: Whether the MKS system is collecting data during this step.
         status: Status string.
-        error_message: Optional error message.
     """
 
     step_number: int
@@ -48,7 +47,6 @@ class StepLogEntry:
     gas_flow_sccm: Optional[float] = None
     mks_on: bool = False
     success: bool = False
-    error_message: Optional[str] = None
 
     def to_dict(self) -> dict[str, object]:
         """Convert the entry to a dictionary.
@@ -101,7 +99,6 @@ class StepLogger:
         gas_flow_sccm: Optional[float] = None,
         mks_on: bool = False,
         success: bool = False,
-        error_message: Optional[str] = None,
     ) -> StepLogEntry:
         """Log a step entry.
 
@@ -115,16 +112,22 @@ class StepLogger:
             gas_flow_sccm: Gas flow in SCCM.
             mks_on: Whether the MKS system is collecting data during this step.
             success: Whether the step was successful.
-            error_message: Optional error message.
 
         Returns:
             StepLogEntry instance.
         """
 
         if step_number is None:
-            self._step_counter += 1
             step_number = self._step_counter
+            self._step_counter += 1
         timestamp = datetime.now().isoformat()
+
+        # When mks_on=True, temperature program controls temp - nullify related fields
+        if mks_on:
+            temp_target = None
+            ramp_rate = None
+            hold_time = None
+
         entry = StepLogEntry(
             step_number=step_number,
             timestamp=timestamp,
@@ -136,7 +139,6 @@ class StepLogger:
             gas_flow_sccm=gas_flow_sccm,
             mks_on=mks_on,
             success=success,
-            error_message=error_message,
         )
         self._entries.append(entry)
 

@@ -134,7 +134,7 @@ class BrooksMFC(SerialDevice):
         )
 
         # Set valve override based on flow rate
-        vor_value = 1 if flow_rate == 0 else 0
+        vor_value = 1 if flow_rate <= 1 else 0
         vor_command = f"az.{output_port}p29={vor_value}"
         vor_response = self.send_command(vor_command)
         if not vor_response or not vor_response.startswith("AZ,"):
