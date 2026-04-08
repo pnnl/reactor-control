@@ -301,7 +301,7 @@ class Experiment:
         target_temps: list[float],
         ramp_rates: list[float],
         hold_times: list[float],
-        log_steps: bool = True,
+        log_steps: bool = False,
     ) -> bool:
         """Run a multi-step temperature program."""
         self._ensure_temperature_control()
@@ -371,7 +371,7 @@ class Experiment:
         self,
         total_flow_rate: float,
         gas_concentrations: dict[str, float],
-        log_step: bool = True,
+        log_step: bool = False,
     ) -> None:
         """Set gas flows."""
         self._current_gas_flow_sccm = total_flow_rate

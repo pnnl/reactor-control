@@ -111,6 +111,8 @@ def pretreatment(
             hold_times=[holds],
         )
 
+        exp.log_step()
+
     return exp
 
 def run_steady_state(
@@ -138,6 +140,7 @@ def run_steady_state(
     )
 
     exp.start_data_collection()
+    exp.log_step()
 
     exp.run_temperature_program(
         target_temps=target_temps,
@@ -152,10 +155,7 @@ def run_steady_state(
 
     return exp
 
-def standby(
-        exp: Experiment,
-        standby_temp: float = 120
-) -> None:
+def standby(exp: Experiment, standby_temp: float = 120) -> None:
     """Set system to standby mode after experiment."""
 
     exp.standby(temperature=standby_temp)
@@ -164,7 +164,7 @@ def standby(
 
 if __name__ == "__main__":
 
-    def experiment_1(standby: bool = True) -> None:
+    def nn_exp1(standby: bool = True) -> None:
         exp = sample_info(
             batch_id="nn2061",
             mass_mg=50.0,
@@ -181,7 +181,7 @@ if __name__ == "__main__":
             exp=exp,
             target_temps=[650, 400],
             ramp_rates=[10.0],
-            hold_times=[4*60, 30],
+            hold_times=[4 * 60, 30],
             gas_flows=[
                 {
                     "total_flow_rate": None,
@@ -194,7 +194,7 @@ if __name__ == "__main__":
                         "n2": 0.0,
                     },
                 },
-                              {
+                {
                     "total_flow_rate": 410,
                     "gas_concentrations": {
                         "h2": 9300.0,
@@ -226,7 +226,7 @@ if __name__ == "__main__":
 
         exp.standby() if standby else exp.close()
 
-    def experiment_2(standby: bool = True) -> None:
+    def nn_exp2(standby: bool = True) -> None:
         exp = sample_info(
             batch_id="nn2061",
             mass_mg=50.0,
@@ -277,11 +277,11 @@ if __name__ == "__main__":
 
         exp.standby() if standby else exp.close()
 
-    def test(standby: bool = True) -> None:
+    def gl_exp1(standby: bool = True) -> None:
         exp = sample_info(
-            batch_id="nn2061",
+            batch_id="gl2061",
             mass_mg=50.0,
-            operator="nelson",
+            operator="greg",
             composition="Pd/Al2O3",
             metal="Pd",
             support="g-Al2O3",
@@ -292,21 +292,10 @@ if __name__ == "__main__":
 
         exp = pretreatment(
             exp=exp,
-            target_temps=[250, 260],
-            ramp_rates=[10],
-            hold_times=[1*0.5, 0.5],
+            target_temps=[400],
+            ramp_rates=[10.0],
+            hold_times=[30.0],
             gas_flows=[
-                {
-                    "total_flow_rate": None,
-                    "gas_concentrations": {
-                        "h2": 9300.0,
-                        "nh3": 0.0,
-                        "no": 0.0,
-                        "o2": 0.0,
-                        "h2o": 0.0,
-                        "n2": 0.0,
-                    },
-                },
                 {
                     "total_flow_rate": 410,
                     "gas_concentrations": {
@@ -322,9 +311,9 @@ if __name__ == "__main__":
 
         exp = run_steady_state(
             exp=exp,
-            target_temps=[250],
-            ramp_rates=[0.0],
-            hold_times=[1.0],
+            target_temps=[120, 140, 160, 180, 200, 225, 250, 275, 300, 350, 400],
+            ramp_rates=[10.0],
+            hold_times=[30.0],
             gas_flow={
                 "total_flow_rate": 410,
                 "gas_concentrations": {
@@ -339,13 +328,13 @@ if __name__ == "__main__":
 
         exp.standby() if standby else exp.close()
 
-    experiment_1(standby=False)
-    experiment_2()
-    # test(standby=False)
+    nn_exp1(standby=False)
+    nn_exp2()
 
 
 """
 Open Items:
 1. if sample info exists, don't write.
 2. introduce hold argument in run_steady_state()?
+3. Check line 143 (exp.log_step()) is behaving as expected
 """

@@ -355,13 +355,16 @@ def compute_conversions(
     df["n2o_sel"] = 2 * (n2o_out - inlet_n2o) / nox_consumed * 100
     df["no2_sel"] = (no2_out - inlet_no2) / nox_consumed * 100
 
-    df.loc[nox_consumed <= 0, ["n2o_sel", "no2_sel", "nh3_sel"]] = None
+    df["n2_mean"] = (nox_consumed + (2 * (inlet_n2o - n2o_out)) + (inlet_nh3 - nh3_out)) / 2
+    df["n2_sel"] = (2 * df["n2_mean"] / nox_consumed) * 100
+    df["mass_balance"] = df["n2o_sel"] + df["nh3_sel"] + df["n2_sel"]
+
+    df.loc[nox_consumed <= 0, ["n2o_sel", "no2_sel", "nh3_sel", "n2_sel", "n2_mean"]] = None
     df.loc[df["no2_sel"] <= 0, ["no2_sel"]] = None
     df.loc[df["nh3_sel"] <= 0, "nh3_sel"] = None
-
-    df["n2"] = (nox_consumed + (2 * (inlet_n2o - n2o_out)) + (inlet_nh3 - nh3_out)) / 2
-    df["n2_sel"] = (2 * df["n2"] / nox_consumed) * 100
-    df["mass_balance"] = df["n2o_sel"] + df["nh3_sel"] + df["n2_sel"]
+    df.loc[df["n2o_sel"] <= 0, "n2o_sel"] = None
+    df.loc[df["n2_sel"] <= 0, "n2_sel"] = None
+    df.loc[df["n2_mean"] <= 0, "n2_mean"] = None
 
     result = df[
         [
@@ -371,7 +374,7 @@ def compute_conversions(
             "no2_sel",
             "nh3_sel",
             "n2_sel",
-            "n2",
+            "n2_mean",
             "mass_balance",
         ]
     ].copy()
@@ -443,4 +446,4 @@ def load_and_process(
 
 
 if __name__ == "__main__":
-    ss_df = load_and_process("20260406_162809_steady-state")
+    ss_df = load_and_process("20260402_221836_steady-state")

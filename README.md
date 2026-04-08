@@ -6,10 +6,10 @@ A Python-based control system for laboratory reactors, supporting gas flow contr
 
 - **Multi-device control**: Brooks Mass Flow Controllers (MFC), HPLC pumps, Omega CN7600 temperature controllers, MKS ToolWEB pressure monitoring
 - **Three-layer architecture**: Devices → Operations → Experiments for clean separation of concerns
-- **Experiment scripting**: Pythonic `ExperimentContext` API for running automated experiments
+- **Experiment scripting**: Pythonic `Experiment` API for running automated experiments
 - **Gas concentration control**: MFC calibration with concentration-to-flow conversion
-- **Safety interlocks**: Built-in safety checks and step logging
-- **Data analysis**: Steady-state analysis with temperature correlation and visualization
+- **Safety interlocks**: HPLC temperature checks, built-in safety checks and step logging
+- **Data analysis**: Steady-state analysis with conversion/selectivity calculations
 
 ## Architecture
 
@@ -73,31 +73,56 @@ MFC calibration data is stored in `config/mfc_calibration.yaml`.
 ### Running an Experiment
 
 ```python
-from experiments.scripting import ExperimentContext
+from src.experiments import Experiment, Sample
 
-with ExperimentContext(sample_id="test-001") as ctx:
-    ctx.set_sample(name="Test Sample", description="Calibration run")
-    ctx.set_temperature(100.0, ramp_rate=5.0)
-    ctx.hold(30)  # minutes
-    ctx.set_gas_flows(
-        flows={"NH3": 10.0, "NO": 5.0, "O2": 2.0},
-        total_flow_rate=100.0,
-        unit="ppm"
-    )
-    ctx.start_data_collection()
-    ctx.hold(15)
-    ctx.stop_data_collection()
-    ctx.stop_all_flows()
+exp = Experiment(name="steady-state", connect_devices=True)
+exp.set_sample(Sample(
+    batch_id="sample-001",
+    mass_mg=50.0,
+    operator="labuser",
+    composition="Pd/Al2O3",
+    metal="Pd",
+    support="g-Al2O3",
+    metal_loading_wt_percent=0.1,
+    mesh_size="30-60",
+    synthesis_method="incipient wetness",
+))
+
+# Pretreatment with multiple steps
+exp = pretreatment(
+    exp=exp,
+    target_temps=[650, 400],
+    ramp_rates=[10.0],
+    hold_times=[240, 30],
+    gas_flows=[
+        {"total_flow_rate": None, "gas_concentrations": {"h2": 9300.0, "nh3": 0.0, "no": 0.0, "o2": 0.0, "h2o": 0.0}},
+        {"total_flow_rate": 410, "gas_concentrations": {"h2": 9300.0, "nh3": 0.0, "no": 350.0, "o2": 0.0, "h2o": 20.0}},
+    ],
+)
+
+# Steady-state experiment
+exp = run_steady_state(
+    exp=exp,
+    target_temps=[120, 140, 160],
+    ramp_rates=[10.0],
+    hold_times=[30.0],
+    gas_flow={
+        "total_flow_rate": 410,
+        "gas_concentrations": {"h2": 9300.0, "nh3": 0.0, "no": 350.0, "o2": 0.0, "h2o": 20.0},
+    },
+)
+
+exp.standby()
 ```
 
 ### Device Control (Low-level)
 
 ```python
-from devices.brooks_mfc import BrooksMFC
+from src.devices.brooks_mfc import BrooksMFC
 
-mfc = BrooksMFC(port="COM4", baud_rate=19200, address=0x02)
+mfc = BrooksMFC(port="COM4", config=DeviceConfig())
 mfc.connect()
-mfc.set_flow(50.0)  # SCCM
+mfc.set_flow_rate(50.0)  # SCCM
 mfc.disconnect()
 ```
 
@@ -106,13 +131,15 @@ mfc.disconnect()
 ```
 reactor_control/
 ├── src/
-│   ├── core/           # Configuration, logging, utilities
-│   ├── devices/        # Hardware drivers
-│   ├── operations/     # Control operations
-│   └── experiments/    # Experiment management
-├── tests/              # Unit tests
-├── docs/               # Documentation
-└── hardware_manuals/   # Device specifications
+│   ├── analyze/       # Data analysis
+│   ├── config/        # Configuration files
+│   ├── core/          # Configuration, logging, utilities
+│   ├── devices/       # Hardware drivers
+│   ├── operations/    # Control operations
+│   └── experiments/   # Experiment management
+├── tests/             # Unit tests
+├── docs/              # Documentation
+└── hardware_manuals/  # Device specifications
 ```
 
 ## Development
