@@ -81,43 +81,6 @@ class DataWriter:
         except (pd.errors.EmptyDataError, OSError):
             return False
 
-    # def reprocess_if_needed(
-    #     self,
-    #     json_path: Path,
-    #     column: str = "nox_conv",
-    #     **load_and_process_kwargs,
-    # ) -> bool:
-    #     """Reprocess experiment if column is missing.
-
-    #     Args:
-    #         json_path: Path to the .json file.
-    #         column: Column name to check for (default: "nox_conv").
-    #         **load_and_process_kwargs: Arguments passed to load_and_process().
-
-    #     Returns:
-    #         True if reprocessing occurred, False otherwise.
-    #     """
-    #     experiment_id = self._get_experiment_id(json_path)
-    #     csv_path = self._get_processed_csv(experiment_id)
-
-    #     if csv_path is None:
-    #         print(f"No processed CSV found for {experiment_id}")
-    #         return False
-
-    #     if self._has_column(csv_path, column):
-    #         print(f"Column '{column}' already exists in {experiment_id}_processed.csv")
-    #         return False
-
-    #     print(f"Reprocessing {experiment_id} (missing '{column}')...")
-    #     try:
-    #         load_and_process(
-    #             experiment_id, data_root=self.data_root, **load_and_process_kwargs
-    #         )
-    #         print(f"  Done: {experiment_id}")
-    #         return True
-    #     except Exception as e:
-    #         print(f"  Error processing {experiment_id}: {e}")
-    #         return False
 
     def reprocess_all(
         self,

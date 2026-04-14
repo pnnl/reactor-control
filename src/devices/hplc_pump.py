@@ -228,9 +228,9 @@ class HPLCPump(SerialDevice):
             True if command successful, False otherwise
         """
         if microbore:
-            flow_rate_int = int(flow_rate_ml_min * 1000)
+            flow_rate_int = round(flow_rate_ml_min * 1000)
         else:
-            flow_rate_int = int(flow_rate_ml_min * 100)
+            flow_rate_int = round(flow_rate_ml_min * 100)
 
         if flow_rate_int > 9999:
             self.logger.error(f"Flow rate too high: {flow_rate_ml_min} ml/min")

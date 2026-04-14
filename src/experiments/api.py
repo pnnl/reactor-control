@@ -67,6 +67,7 @@ class Sample:
     support: str
     metal_loading_wt_percent: float
     mesh_size: str
+    is_new_sample: bool
     synthesis_method: str
 
 
