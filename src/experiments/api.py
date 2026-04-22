@@ -20,6 +20,7 @@ from __future__ import annotations
 import logging
 import shutil
 import time
+import yaml
 from dataclasses import asdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -40,7 +41,6 @@ logger = logging.getLogger(__name__)
 
 def _load_data_root() -> Path:
     """Load the data root path from config."""
-    import yaml
 
     paths_file = Path(__file__).resolve().parent.parent.parent / "config" / "paths.yaml"
     if paths_file.exists():
@@ -54,6 +54,20 @@ def _load_data_root() -> Path:
             pass
     return Path("C:/Data")
 
+def _load_cloud_root() -> Path:
+    """Load the cloud root path from config."""
+
+    paths_file = Path(__file__).resolve().parent.parent.parent / "config" / "paths.yaml"
+    if paths_file.exists():
+        try:
+            with paths_file.open("r", encoding="utf-8") as f:
+                data = yaml.safe_load(f) or {}
+                root = data.get("cloud_storage")
+                if root:
+                    return Path(root)
+        except Exception:
+            pass
+    return Path("Z:/we43712")
 
 @dataclass
 class Sample:
@@ -506,23 +520,23 @@ class Experiment:
             self._logger.warning(f"No files found matching {self._experiment_id}*")
             return
 
-        target_dir = Path("Z:/")
+        target_dir = _load_cloud_root()
         try:
             target_dir.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            self._logger.error(f"Could not create Z: drive directory: {exc}")
+            self._logger.error(f"Could not create directory {target_dir}: {exc}")
             return
 
         copied_count = 0
         for file_path in files_to_copy:
             try:
                 shutil.copy2(file_path, target_dir / file_path.name)
-                self._logger.info(f"Copied {file_path.name} to Z:/")
+                self._logger.info(f"Copied {file_path.name} to {target_dir}")
                 copied_count += 1
             except OSError as exc:
                 self._logger.error(f"Failed to copy {file_path.name}: {exc}")
 
-        self._logger.info(f"Exported {copied_count} files to Z: drive")
+        self._logger.info(f"Exported {copied_count} files to {target_dir}")
 
     # =========================================================================
     # Internal Helpers

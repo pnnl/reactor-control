@@ -142,7 +142,6 @@ def run_steady_state(
     )
 
     exp.start_data_collection()
-    exp.log_step()
 
     exp.run_temperature_program(
         target_temps=target_temps,
@@ -182,42 +181,42 @@ if __name__ == "__main__":
 
         exp = pretreatment(
             exp=exp,
-            target_temps=[650, 400],
+            target_temps=[130],
             ramp_rates=[10.0],
-            hold_times=[4 * 60, 0, 30],
+            hold_times=[10 * 60],
             gas_flows=[
                 {
                     "total_flow_rate": None,
                     "gas_concentrations": {
-                        "h2": 0.0,
-                        "nh3": 350.0,
+                        "h2": 25000.0,
+                        "nh3": 10000.0,
                         "no": 0.0,
                         "o2": 0.0,
                         "h2o": 0.0,
                         "n2": 0.0
                     },
                 },
-                {
-                    "total_flow_rate": None,
-                    "gas_concentrations": {
-                        "h2": 0.0,
-                        "nh3": 350.0,
-                        "no": 0.0,
-                        "o2": 0.0,
-                        "h2o": 0.0,
-                        "n2": 0.0
-                    },
-                },
-                {
-                    "total_flow_rate": 410,
-                    "gas_concentrations": {
-                        "h2": 9300.0,
-                        "nh3": 0.0,
-                        "no": 350.0,
-                        "o2": 0.0,
-                        "h2o": 20.0,
-                    },
-                },
+                # {
+                #     "total_flow_rate": None,
+                #     "gas_concentrations": {
+                #         "h2": 0.0,
+                #         "nh3": 10000.0,
+                #         "no": 0.0,
+                #         "o2": 0.0,
+                #         "h2o": 0.0,
+                #         "n2": 0.0
+                #     },
+                # },
+                # {
+                #     "total_flow_rate": 410,
+                #     "gas_concentrations": {
+                #         "h2": 9300.0,
+                #         "nh3": 0.0,
+                #         "no": 350.0,
+                #         "o2": 0.0,
+                #         "h2o": 20.0,
+                #     },
+                # },
             ],
         )
 
@@ -294,15 +293,15 @@ if __name__ == "__main__":
 
     def gl_exp1(standby: bool = True) -> None:
         exp = sample_info(
-            batch_id="0.6%-Cu-CHA-SAR36-SSIE",
+            batch_id="1%-Cu-CHA-SAR24-SSIE",
             mass_mg=100.0,
             operator="Garam",
-            composition="Cu-CHA-SAR36",
+            composition="Cu-CHA-SAR24",
             metal="Cu",
             support="SSZ-13",
-            metal_loading_wt_percent=0.6,
+            metal_loading_wt_percent=1.0,
             mesh_size="40-60",
-            is_new_sample=False,
+            is_new_sample=True,
             synthesis_method="SSIE",
         )
 
@@ -406,8 +405,8 @@ if __name__ == "__main__":
 
         exp.standby() if standby else exp.close()
 
-    nn_exp1(standby=False)
-    nn_exp2()
+    nn_exp1(standby=True)
+    # nn_exp2()
     # gl_exp1()
     # test()
 
@@ -415,7 +414,7 @@ if __name__ == "__main__":
 """
 Open Items:
 1. if sample info exists, don't write.
-2. What happens if n2>100?
+2. NO=0 writes to 0.1
 
 From GL
 1. If the total flow rate cannot reach the set value, does it not set the MFC openings to the set values? I was using 350 ppm NO, 10% O2, and 6% H2O as pretreatment, only NO and O2 were set to the correct values, but not H2O (HPLC pump not turned on) and N2 (at the standby value of 10%)
