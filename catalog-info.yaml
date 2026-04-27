@@ -9,6 +9,8 @@ metadata:
       title: GitHub Repository
     - url: https://tanuki.pnnl.gov/nick.nelson/reactor-control
       title: GitLab Repository
+  annotations:
+    tanuki.pnnl.gov/project-id: '2628'
 spec:
   type: service
   lifecycle: production
