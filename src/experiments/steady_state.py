@@ -418,5 +418,4 @@ Open Items:
 
 From GL
 1. If the total flow rate cannot reach the set value, does it not set the MFC openings to the set values? I was using 350 ppm NO, 10% O2, and 6% H2O as pretreatment, only NO and O2 were set to the correct values, but not H2O (HPLC pump not turned on) and N2 (at the standby value of 10%)
-2. For your reference, ammonia cylinder (SG-5) has been replaced, the cylinder concentration is now 1% instead of 1.5%.
 """

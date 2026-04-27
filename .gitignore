@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .DS_Store
 .env.loc
+.env
 .ruff_cache/
 
 # folders
