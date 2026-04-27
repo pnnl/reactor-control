@@ -1,0 +1,17 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: reactor-control-system
+  title: Reactor Control System
+  description: Python-based control system for a lab reactor, managing mass flow controllers and temperature monitoring.
+  links:
+    - url: https://github.com/pnnl-int/reactor-control
+      title: GitHub Repository
+    - url: https://tanuki.pnnl.gov/nick.nelson/reactor-control
+      title: GitLab Repository
+spec:
+  type: service
+  lifecycle: production
+  owner: emissions-catalysis-team
+  visibility: internal
+  system: plug-flow-reactor

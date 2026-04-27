@@ -13,7 +13,7 @@ mfc_calibrations:
   - port: COM4
     channel: 1
     gas_name: NH3
-    cylinder_concentration: 15000.0  # ppm
+    cylinder_concentration: 10000.0  # ppm
     x_unit: "% open"
     y_unit: "sccm"
     x_values:
