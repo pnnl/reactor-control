@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Set
 from typing import Optional
 from typing import Callable
 from typing import TYPE_CHECKING
@@ -488,7 +488,7 @@ class FlowControl(BaseOperation):
                 flow_rate = 10.0
                 self.logger.info(f"Setting carrier gas {gas_name} to {flow_rate}%")
             elif gas_name.lower() == "o2":
-                flow_rate = 5.0
+                flow_rate = 0.0
                 self.logger.info(f"Setting {gas_name} to {flow_rate}% for standby")
             else:
                 flow_rate = 0.0
@@ -723,17 +723,18 @@ if __name__ == "__main__":
     safety_interlocks = SafetyInterlocks()
     flow_control = FlowControl(mfc, hplc, safety_interlocks)
 
-    # # Set gas concentrations (ppm for most, percent for O2)
-    # result = flow_control.set_gas_concentrations(
-    #     {
-    #         "h2": 0.0,  # ppm
-    #         "nh3": 0.0,  # ppm
-    #         "no": 0.0,  # ppm
-    #         "o2": 10.0,  # percent
-    #         "h2o": 6.0,  # percent
-    #     },
-    #     total_flow_rate=380,  # sccm total flow
-    #     experiment_dir=Path("C:\\Data\\nelson\\2026"),
-    # )
+    # Set gas concentrations (ppm for most, percent for O2)
+    
+    result = flow_control.set_gas_concentrations(
+        {
+            "h2": 0.0,  # ppm
+            "nh3": 0.0,  # ppm
+            "no": 0.0,  # ppm..
+            "o2": 0.0,  # percent
+            "h2o": 0.0,  # percent
+        },
+        total_flow_rate=410,  # sccm total flow
+        experiment_dir=Path("C:\\Data\\nelson\\2026"),
+    )
 
     flow_control.set_standby_flow()

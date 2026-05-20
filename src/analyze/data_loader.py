@@ -63,13 +63,26 @@ def _parse_ftir_datetime(date_str: str, time_str: str) -> datetime:
 
     Args:
         date_str: Date string in format "M/D/YYYY" (e.g., "3/18/2026").
-        time_str: Time string in format "HH:MM:SS.mmm" (e.g., "08:49:05.000").
+        time_str: Time string from FTIR export.
 
     Returns:
         Parsed datetime object.
     """
     dt_str = f"{date_str} {time_str}"
-    return datetime.strptime(dt_str, "%m/%d/%Y %H:%M:%S.%f")
+    # FTIR exports vary by instrument/setting; support known time variants.
+    formats = (
+        "%m/%d/%Y %H:%M:%S.%f",  # e.g., 5/18/2026 13:29:05.000
+        "%m/%d/%Y %H:%M:%S",  # e.g., 5/18/2026 13:29:05
+        "%m/%d/%Y %H:%M.%f",  # e.g., 5/18/2026 13:29.0
+    )
+    for fmt in formats:
+        try:
+            return datetime.strptime(dt_str, fmt)
+        except ValueError:
+            continue
+    raise ValueError(
+        f"Unsupported FTIR datetime format: '{dt_str}'. Expected one of {formats}"
+    )
 
 
 def _parse_csv_datetime(dt_str: str) -> datetime:
