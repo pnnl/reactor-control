@@ -682,7 +682,7 @@ if __name__ == "__main__":
     val = controller.get_temperature()  # read current temp
     print(f"Current Temperature: {val} °C")
 
-    temp_control.set_temperature(400)  # set single temp with defaults
+    # temp_control.set_temperature(120)  # set single temp with defaults
 
     # result = temp_control.run_temperature_program(
     #      target_temps=[450, 300],  # °C
@@ -691,9 +691,9 @@ if __name__ == "__main__":
     #     #  experiment_dir=Path("C:\\Data\\nelson\\2026")
     #  )
 
-    # result = temp_control.run_temperature_program(
-    #       target_temps=[500, 450, 400, 350, 300, 275, 250, 225, 200, 175,150],
-    #       ramp_rates=[10.0, 10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 4.0, 4.0],
-    #     hold_times=[40.0, 40.0, 45.0, 45.0, 45.0, 45.0, 45.0, 45.0, 45.0, 45.0, 45.0],
-    #      experiment_dir=Path("C:\\Data\\Garam"),
-    #  )
+    result = temp_control.run_temperature_program(
+          target_temps=[450, 400, 350, 300, 275, 250, 225, 200, 175, 150, 125, 100, 200],
+          ramp_rates=[10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 4.0, 4.0, 4.0, 4.0, 10.0],
+        hold_times=[45.0, 45.0, 45.0, 45.0, 45.0, 45.0, 45.0, 45.0, 45.0, 45.0, 45.0, 45.0, 2.0],
+         experiment_dir=Path("C:\\Data\\Garam"),
+     )

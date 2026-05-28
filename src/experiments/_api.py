@@ -54,6 +54,7 @@ def _load_data_root() -> Path:
             pass
     return Path("C:/Data")
 
+
 def _load_cloud_root() -> Path:
     """Load the cloud root path from config."""
 
@@ -68,6 +69,7 @@ def _load_cloud_root() -> Path:
         except Exception:
             pass
     return Path("Z:/we43712")
+
 
 @dataclass
 class Sample:
@@ -431,6 +433,8 @@ class Experiment:
             self._logger.info("Gas flows set successfully")
             if result.data and "gas_concentrations" in result.data:
                 self._current_gas_concentrations = result.data["gas_concentrations"]
+            if result.data and "actual_total_flow_sccm" in result.data:
+                self._current_gas_flow_sccm = result.data["actual_total_flow_sccm"]
             if log_step:
                 self.log_step()
         else:

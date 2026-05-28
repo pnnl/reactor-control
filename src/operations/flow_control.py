@@ -151,7 +151,8 @@ class FlowControl(BaseOperation):
             gas_flows[gas_name] = flow_sccm
 
         # Add water to gas_flows for total flow calculation
-        if h2o_concentration is not None:  # and h2o_concentration != 0.0:
+        water_flow = 0.0
+        if h2o_concentration is not None:
             hplc_cal = get_hplc_calibration()
 
             if (
@@ -195,6 +196,7 @@ class FlowControl(BaseOperation):
                 )
 
         # write flow values
+        actual_flow_sccm = 0.0
         for gas_name, flow_sccm in gas_flows.items():
             if flow_sccm < 0:
                 return OperationResult(
@@ -263,6 +265,16 @@ class FlowControl(BaseOperation):
                     message=f"Failed to convert flow for {gas_name}.",
                 )
 
+            cal_curve = get_gas_calibration(gas_name)
+            if cal_curve is not None and cal_curve.fit is not None:
+                gas_actual_sccm = cal_curve.percent_to_sccm(percent)
+            else:
+                full_scale = default_config.mfc_full_scale_sccm.get(
+                    routing.get("port"), 200.0
+                )
+                gas_actual_sccm = (percent / 100.0) * full_scale
+            actual_flow_sccm += gas_actual_sccm
+
             if not device.is_connected:
                 if not device.connect():
                     return OperationResult(
@@ -276,15 +288,21 @@ class FlowControl(BaseOperation):
                     message=f"Failed to set flow for {gas_name}.",
                 )
 
-        # Read back actual concentrations
+        # Include water in actual total for read-back divisor
+        actual_flow_sccm += water_flow
+
+        # Read back actual concentrations using actual total flow
         actual_concentrations = self._read_gas_concentrations(
-            gas_flows, total_flow_rate
+            gas_flows, actual_flow_sccm
         )
 
         return OperationResult(
             success=True,
             message="Gas flows set.",
-            data={"gas_concentrations": actual_concentrations},
+            data={
+                "gas_concentrations": actual_concentrations,
+                "actual_total_flow_sccm": int(round(actual_flow_sccm)),
+            },
         )
 
     def _read_gas_concentrations(
@@ -321,9 +339,7 @@ class FlowControl(BaseOperation):
                 if self.hplc_pump is not None and self.hplc_pump.is_connected:
                     val = hplc_cal.fit.predict(self.last_water_flow_rate)
                     if total_flow is None:
-                        actual_concentrations[gas_name] = round(
-                            max(val*100, 0.0), 1
-                        )                    
+                        actual_concentrations[gas_name] = round(max(val * 100, 0.0), 1)
                     else:
                         actual_concentrations[gas_name] = round(
                             max(val / total_flow * 100, 0.0), 1
@@ -435,7 +451,7 @@ class FlowControl(BaseOperation):
                     if total_flow and total_flow > 0:
                         concentration = (actual_sccm / total_flow) * cylinder_conc
                     else:
-                        concentration = (actual_sccm/actual_sccm) * cylinder_conc
+                        concentration = (actual_sccm / actual_sccm) * cylinder_conc
                     actual_concentrations[gas_name] = round(concentration, 1)
                 else:
                     actual_percent = (
@@ -634,6 +650,11 @@ class FlowControl(BaseOperation):
         if cal_curve is not None and cal_curve.fit is not None:
             try:
                 percent = cal_curve.sccm_to_percent(flow_sccm)
+                if percent > 100.0:
+                    self.logger.warning(
+                        f"{gas_name}: requested flow {flow_sccm:.1f} SCCM exceeds "
+                        f"MFC capacity ({percent:.1f}%). Clamping to 100%."
+                    )
                 return max(0.0, min(100.0, percent))
             except Exception as e:
                 self.logger.warning(
@@ -651,6 +672,11 @@ class FlowControl(BaseOperation):
             self.logger.error("Invalid MFC full scale configuration.")
             return None
         percent = (flow_sccm / full_scale) * 100.0
+        if percent > 100.0:
+            self.logger.warning(
+                f"{gas_name}: requested flow {flow_sccm:.1f} SCCM exceeds "
+                f"MFC capacity ({percent:.1f}%). Clamping to 100%."
+            )
         return max(0.0, min(100.0, percent))
 
     def _convert_concentration_to_flow(
@@ -721,20 +747,20 @@ if __name__ == "__main__":
     mfc = [BrooksMFC("COM4"), BrooksMFC("COM5")]
     hplc = HPLCPump()
     safety_interlocks = SafetyInterlocks()
-    flow_control = FlowControl(mfc, hplc, safety_interlocks)
+    flow_control = FlowControl(mfc, hplc, safety_interlocks=None)
 
     # Set gas concentrations (ppm for most, percent for O2)
-    
+
     result = flow_control.set_gas_concentrations(
         {
             "h2": 0.0,  # ppm
             "nh3": 0.0,  # ppm
-            "no": 0.0,  # ppm..
-            "o2": 0.0,  # percent
-            "h2o": 0.0,  # percent
+            "no": 0.0,  # ppm
+            "o2": 10.0,  # percent
+            "h2o": 20.0,  # percent
         },
         total_flow_rate=410,  # sccm total flow
         experiment_dir=Path("C:\\Data\\nelson\\2026"),
     )
 
-    flow_control.set_standby_flow()
+    # flow_control.set_standby_flow()

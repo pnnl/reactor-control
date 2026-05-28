@@ -167,32 +167,33 @@ if __name__ == "__main__":
 
     def nn_exp1(standby: bool = True) -> None:
         exp = sample_info(
-            batch_id="n/a", #"nn2062",
-            mass_mg=0.0, #50.0,
+            batch_id="nn2062-1",
+            mass_mg=100.0,
             operator="nelson",
-            composition="n/a", #"Ni/Al2O3",
-            metal="n/a", #"Ni",
-            support="n/a", #"g-Al2O3",
-            metal_loading_wt_percent=0.0, #0.2,
-            mesh_size="n/a", #"30-60",
-            is_new_sample=False, # True,
-            synthesis_method="empty reactor test"
+            composition="Ni/Al2O3",
+            metal="Ni",
+            support="g-Al2O3",
+            metal_loading_wt_percent=0.2,
+            mesh_size="30-60",
+            is_new_sample=False,
+            synthesis_method=""
         )
 
         exp = pretreatment(
             exp=exp,
-            target_temps=[200],
-            ramp_rates=[10.0],
-            hold_times=[10],
+            target_temps=[400, 120],
+            ramp_rates=[10],
+            hold_times=[60, 0],
             gas_flows=[
                 {
-                    "total_flow_rate": 410,
+                    "total_flow_rate": None,
                     "gas_concentrations": {
-                        "h2": 9300.0,
+                        "h2": 10000.0,
                         "nh3": 0.0,
-                        "no": 350.0,
+                        "no": 0.0,
                         "o2": 0.0,
                         "h2o": 0.0,
+                        "n2": 0.0
                     },
                 },
                 # {
@@ -221,9 +222,9 @@ if __name__ == "__main__":
 
         exp = run_steady_state(
             exp=exp,
-            target_temps= [200, 300, 400], #[120, 140, 160, 180, 200, 225, 250, 275, 300, 350, 400],
-            ramp_rates=[10.0],
-            hold_times=[30.0],
+            target_temps= [120, 140, 160, 180, 200, 250, 300, 350, 400],
+            ramp_rates=[10],
+            hold_times=[60, 30],
             gas_flow={
                 "total_flow_rate": 410,
                 "gas_concentrations": {
@@ -240,13 +241,13 @@ if __name__ == "__main__":
 
     def nn_exp2(standby: bool = True) -> None:
         exp = sample_info(
-            batch_id="nn2062",
-            mass_mg=50.0,
+            batch_id="nn2062-1",
+            mass_mg=100.0,
             operator="nelson",
             composition="Ni/Al2O3",
             metal="Ni",
             support="g-Al2O3",
-            metal_loading_wt_percent=0.1,
+            metal_loading_wt_percent=0.2,
             mesh_size="30-60",
             is_new_sample=False,
             synthesis_method="",
@@ -254,18 +255,19 @@ if __name__ == "__main__":
 
         exp = pretreatment(
             exp=exp,
-            target_temps=[600, 120],
+            target_temps=[500, 120],
             ramp_rates=[10.0],
-            hold_times=[4*60, 30],
+            hold_times=[2*60, 0],
             gas_flows=[
                 {
-                    "total_flow_rate": 300,
+                    "total_flow_rate": None,
                     "gas_concentrations": {
-                        "h2": 0.0,
+                        "h2": 10000.0,
                         "nh3": 0.0,
                         "no": 0.0,
                         "o2": 0.0,
-                        "h2o": 20.0,
+                        "h2o": 0.0,
+                        "n2": 0.0
                     },
                 },
             ],
@@ -273,9 +275,9 @@ if __name__ == "__main__":
 
         exp = run_steady_state(
             exp=exp,
-            target_temps=[120, 140, 160, 180, 200, 225, 250, 275, 300, 350, 400],
-            ramp_rates=[10.0],
-            hold_times=[30.0],
+            target_temps=[120, 140, 160, 180, 200, 250, 300, 350, 400],
+            ramp_rates=[10],
+            hold_times=[60, 30],
             gas_flow={
                 "total_flow_rate": 410,
                 "gas_concentrations": {
@@ -283,7 +285,7 @@ if __name__ == "__main__":
                     "nh3": 0.0,
                     "no": 350.0,
                     "o2": 1.0,
-                    "h2o": 20.0,
+                    "h2o": 0.0,
                 },
             },
         )
@@ -292,13 +294,13 @@ if __name__ == "__main__":
 
     def gl_exp1(standby: bool = True) -> None:
         exp = sample_info(
-            batch_id="5.5%-Cu-CHA-SAR4.6-SSIE",
+            batch_id="10%-Ce0.8Mn0.2Ox-Cu-CHA-BP",
             mass_mg=100.0,
             operator="Garam",
-            composition="Cu-CHA-SA4.6",
-            metal="Cu",
+            composition="CeMnOx-Cu-CHA-BP",
+            metal="Ce0.8Mn0.2Ox-Cu",
             support="SSZ-13",
-            metal_loading_wt_percent=5.5,
+            metal_loading_wt_percent=2.0,
             mesh_size="40-60",
             is_new_sample=True,
             synthesis_method="SSIE",
@@ -314,10 +316,62 @@ if __name__ == "__main__":
                     "total_flow_rate": 310,
                     "gas_concentrations": {
                         "h2": 0.0,
-                        "nh3": 0.0,
-                        "no": 350.0,
+                        "nh3": 350.0,
+                        "no": 0.0,
                         "o2": 10.0,
                         "h2o": 6.0,
+                    },
+                },
+            ],
+        )
+
+        exp = run_steady_state(
+            exp=exp,
+            target_temps=[450, 400, 350, 300, 275, 250, 225, 200, 175, 150, 125, 100, 200],
+            ramp_rates=[10.0, 10.0, 10.0, 10.0, 5.0, 5.0, 5.0, 5.0, 4.0, 4.0, 4.0, 4.0, 10.0],
+            hold_times=[50.0, 45.0, 45.0, 45.0, 45.0, 45.0, 55.0, 60.0, 45.0, 45.0, 40.0, 40.0, 2.0],
+            gas_flow={
+                "total_flow_rate": 410,
+                "gas_concentrations": {
+                    "h2": 0.0,
+                    "nh3": 350.0,
+                    "no": 350.0,
+                    "o2": 10.0,
+                    "h2o": 6.0,
+                },
+            },
+        )
+
+        exp.standby() if standby else exp.close()
+
+    def gl_exp2(standby: bool = True) -> None:
+        exp = sample_info(
+            batch_id="10%-Ce0.8Mn0.2Ox-Cu-CHA-BP",
+            mass_mg=100.0,
+            operator="Garam",
+            composition="CeMnOx-Cu-CHA-BP",
+            metal="Ce0.8Mn0.2Ox-Cu",
+            support="SSZ-13",
+            metal_loading_wt_percent=2.0,
+            mesh_size="40-60",
+            is_new_sample=True,
+            synthesis_method="SSIE",
+        )
+
+        exp = pretreatment(
+            exp=exp,
+            target_temps=[200],
+            ramp_rates=[10.0],
+            hold_times=[5.0],
+            gas_flows=[
+                {
+                    "total_flow_rate": 410,
+                    "gas_concentrations": {
+                        "h2": 0.0,
+                        "nh3": 350.0,
+                        "no": 350.0,
+                        "o2": 10.0,
+                        "h2o": 20.0,
                     },
                 },
             ],
@@ -335,7 +389,7 @@ if __name__ == "__main__":
                     "nh3": 350.0,
                     "no": 350.0,
                     "o2": 10.0,
-                    "h2o": 6.0,
+                    "h2o": 20.0,
                 },
             },
         )
@@ -358,17 +412,17 @@ if __name__ == "__main__":
 
         exp = pretreatment(
             exp=exp,
-            target_temps=[400],
+            target_temps=[120],
             ramp_rates=[10.0],
-            hold_times=[10],
+            hold_times=[1],
             gas_flows=[
                 {
                     "total_flow_rate": 410,
                     "gas_concentrations": {
-                        "h2": 9300.0,
+                        "h2": 0.0,
                         "nh3": 0.0,
-                        "no": 350.0,
-                        "o2": 0.0,
+                        "no": 0.0,
+                        "o2": 10.0,
                         "h2o": 0.0,
                     },
                 },
@@ -377,16 +431,16 @@ if __name__ == "__main__":
 
         exp = run_steady_state(
             exp=exp,
-            target_temps=[400],
+            target_temps=[120],
             ramp_rates=[10.0],
             hold_times=[1],
             gas_flow={
                 "total_flow_rate": 410,
                 "gas_concentrations": {
-                    "h2": 9300.0,
+                    "h2": 0.0,
                     "nh3": 0.0,
-                    "no": 350.0,
-                    "o2": 0.0,
+                    "no": 0.0,
+                    "o2": 10.0,
                     "h2o": 0.0,
                 },
             },
@@ -394,116 +448,12 @@ if __name__ == "__main__":
 
         exp.standby() if standby else exp.close()
 
-    def nn_exp3(standby: bool = True) -> None:
-        exp = sample_info(
-            batch_id="n/a", #"nn2062",
-            mass_mg=0.0, #50.0,
-            operator="nelson",
-            composition="n/a", #"Ni/Al2O3",
-            metal="n/a", #"Ni",
-            support="n/a", #"g-Al2O3",
-            metal_loading_wt_percent=0.0, #0.2,
-            mesh_size="n/a", #"30-60",
-            is_new_sample=False,
-            synthesis_method="empty reactor test"
-        )
-
-        exp = pretreatment(
-            exp=exp,
-            target_temps=[400],
-            ramp_rates=[10.0],
-            hold_times=[10],
-            gas_flows=[
-                {
-                    "total_flow_rate": 410,
-                    "gas_concentrations": {
-                        "h2": 9300.0,
-                        "nh3": 0.0,
-                        "no": 350.0,
-                        "o2": 0.0,
-                        "h2o": 1.0,
-                    },
-                },
-            ],
-        )
-
-        exp = run_steady_state(
-            exp=exp,
-            target_temps= [400, 300, 200],
-            ramp_rates=[10.0],
-            hold_times=[30.0],
-            gas_flow={
-                "total_flow_rate": 410,
-                "gas_concentrations": {
-                    "h2": 9300.0,
-                    "nh3": 0.0,
-                    "no": 350.0,
-                    "o2": 0.0,
-                    "h2o": 1.0,
-                },
-            },
-        )
-
-        exp.standby() if standby else exp.close()
-
-    def nn_exp4(standby: bool = True) -> None:
-        exp = sample_info(
-            batch_id="n/a", #"nn2062",
-            mass_mg=0.0, #50.0,
-            operator="nelson",
-            composition="n/a", #"Ni/Al2O3",
-            metal="n/a", #"Ni",
-            support="n/a", #"g-Al2O3",
-            metal_loading_wt_percent=0.0, #0.2,
-            mesh_size="n/a", #"30-60",
-            is_new_sample=False,
-            synthesis_method="empty reactor test"
-        )
-
-        exp = pretreatment(
-            exp=exp,
-            target_temps=[200],
-            ramp_rates=[10.0],
-            hold_times=[10],
-            gas_flows=[
-                {
-                    "total_flow_rate": 410,
-                    "gas_concentrations": {
-                        "h2": 9300.0,
-                        "nh3": 0.0,
-                        "no": 350.0,
-                        "o2": 1.0,
-                        "h2o": 0.0,
-                    },
-                },
-            ],
-        )
-
-        exp = run_steady_state(
-            exp=exp,
-            target_temps= [200, 300, 400],
-            ramp_rates=[10.0],
-            hold_times=[30.0],
-            gas_flow={
-                "total_flow_rate": 410,
-                "gas_concentrations": {
-                    "h2": 9300.0,
-                    "nh3": 0.0,
-                    "no": 350.0,
-                    "o2": 1.0,
-                    "h2o": 0.0,
-                },
-            },
-        )
-
-        exp.standby() if standby else exp.close()
 
     nn_exp1(standby=False)
-    # nn_exp2()
-    # gl_exp1()
+    nn_exp2()
+    # gl_exp1(standby=False)
+    # gl_exp2(standby=True)
     # test()
-    nn_exp3(standby=False)
-    nn_exp4(standby=True)
 
 
 """
