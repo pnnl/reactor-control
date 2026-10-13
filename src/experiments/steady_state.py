@@ -278,31 +278,31 @@ if __name__ == "__main__":
     def cs_exp1(standby: bool = True) -> None:
         exp = sample_info(
             batch_id="",
-            mass_mg=50.0,
-            operator="CS",
-            composition="Pt-Pd/Al2O3",
-            metal="Pt, Pd",
-            support="Al2O3",
-            metal_loading_wt_percent=0.1,
+            mass_mg=50, #220.0,
+            operator="DJD",
+            composition="2% Cu-CHA PIDC 4.6",#"Pt-Al2O3-Cummins-ASC",
+            metal="Cu",
+            support="CHA",
+            metal_loading_wt_percent=2.0,
             mesh_size="60-80",
             is_new_sample=True,
-            synthesis_method="",
+            synthesis_method="SSIE",
         )
 
         exp = pretreatment(
             exp=exp,
-            target_temps=[450, 120],
+            target_temps=[120],
             ramp_rates=[10.0],
-            hold_times=[1.0, 0],
+            hold_times=[10],
             gas_flows=[
                 {
-                    "total_flow_rate": 410, #sccm
+                    "total_flow_rate": 320, #sccm
                     "gas_concentrations": {
-                        "h2": 9300.0, # ppm
+                        "h2": 600.0, # ppm
                         "nh3": 0.0, # ppm
-                        "no": 350.0, # ppm
-                        "o2": 10.0, # pct
-                        "h2o": 20.0, # pct
+                        "no": 0.0, # ppm
+                        "o2": 0.0, # pct
+                        "h2o": 0.0, # pct
                     },
                 },
             ],
@@ -310,17 +310,17 @@ if __name__ == "__main__":
 
         exp = run_steady_state(
             exp=exp,
-            target_temps=[120, 140, 160, 180, 200, 250, 300, 350, 400],
+            target_temps=[120, 500, 120],#400, 350, 300, 290, 270, 260, 250, 240, 230, 220, 210, 200, 190, 170, 150],
             ramp_rates=[10],
-            hold_times=[60, 30],
+            hold_times=[30,30],
             gas_flow={
-                "total_flow_rate": 410, # mL/min
+                "total_flow_rate": 320, # mL/min
                 "gas_concentrations": {
-                    "h2": 9300.0,
+                    "h2": 0.0,
                     "nh3": 0.0,
-                    "no": 350.0,
-                    "o2": 10.0,
-                    "h2o": 20.0,
+                    "no": 0.0,
+                    "o2": 0.0,
+                    "h2o": 0.0,
                 },
             },
         )
@@ -332,8 +332,8 @@ if __name__ == "__main__":
             batch_id="",
             mass_mg=50.0,
             operator="CS",
-            composition="Pt-Pd/Al2O3",
-            metal="Pt, Pd",
+            composition="Pt-only/Al2O3",
+            metal="Pt",
             support="Al2O3",
             metal_loading_wt_percent=0.1,
             mesh_size="60-80",
@@ -432,10 +432,10 @@ if __name__ == "__main__":
 
         exp.standby() if standby else exp.close()
 
-    nn_exp1(standby=False)
-    nn_exp2(standby=True)
-    # cs_exp1(standby=False)
-    # cs_exp2(standby=True)
+    # nn_exp1(standby=False)
+    # nn_exp2(standby=True)
+    cs_exp1(standby=True)
+    #cs_exp2(standby=True)
     # test()
 
 
@@ -445,7 +445,6 @@ Open Items:
 2. NO=0 writes to 0.1
 3. Check NO2 and N2 selectivity/mean in analyze_ss.py
 4. Step 0 on sequentially run still has residual flow from the previoius mfc, e.g. H2=47.8 when it should be 0.0
-6. Need longer rest time to read gas concentrations accurately.
 
 From GL
 1. If the total flow rate cannot reach the set value, does it not set the MFC openings to the set values? I was using 350 ppm NO, 10% O2, and 6% H2O as pretreatment, only NO and O2 were set to the correct values, but not H2O (HPLC pump not turned on) and N2 (at the standby value of 10%)
